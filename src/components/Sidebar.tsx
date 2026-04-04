@@ -9,9 +9,10 @@ interface SidebarProps {
   onWorkspaceSelect: (id: string) => void;
   onWorkspaceReorder: (workspaces: Workspace[]) => void;
   onNewWorkspace: () => void;
+  onOpenSettings?: () => void;
 }
 
-const SIDEBAR_MIN_WIDTH = 120;
+const SIDEBAR_MIN_WIDTH = 200;
 const SIDEBAR_MAX_WIDTH = 400;
 
 export function Sidebar({
@@ -22,6 +23,7 @@ export function Sidebar({
   onWorkspaceSelect,
   onWorkspaceReorder,
   onNewWorkspace,
+  onOpenSettings,
 }: SidebarProps) {
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -150,6 +152,26 @@ export function Sidebar({
         >
           [ + new workspace ]
         </button>
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="
+              w-full px-3 py-2 mt-2
+              border border-[#1a1a1a] 
+              bg-transparent 
+              text-[#555555] 
+              text-xs 
+              font-mono 
+              hover:bg-[#ffffff] 
+              hover:text-[#0a0a0a] 
+              transition-colors 
+              duration-150
+              cursor-pointer
+            "
+          >
+            [ settings ]
+          </button>
+        )}
       </div>
     </aside>
   );

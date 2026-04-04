@@ -1,0 +1,23 @@
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
+
+export function useRouteSync() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (window.__TAURI__) {
+      window.__TAURI__.invoke("sync_route", { path: location.pathname }).catch(
+        () => {},
+      );
+    }
+    window.history.replaceState(null, "", location.pathname);
+  }, [location]);
+}
+
+declare global {
+  interface Window {
+    __TAURI__?: {
+      invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+    };
+  }
+}
