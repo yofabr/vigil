@@ -10,10 +10,11 @@ import {
 } from './types';
 
 function countAllPanes(pane: Pane): number {
-  if (!pane.children || pane.children.length === 0) {
-    return 1;
+  if (!pane.children) return 1;
+  if (pane.split === 'horizontal') {
+    return pane.children.reduce((acc, pc) => acc + countAllPanes(pc), 0);
   }
-  return pane.children.reduce((acc, child) => acc + countAllPanes(child), 0);
+  return pane.children.length;
 }
 
 function App() {
@@ -69,25 +70,28 @@ function App() {
     const flatPanes = flattenPanesInTree(currentP);
     const activePane = flatPanes[activePaneIndex];
     
-    const splitActivePane = (p: Pane): Pane => {
-      if (p.id === activePane.id) {
+    const activePCId = findPCContainingPane(currentP, activePane.id);
+    
+    if (!activePCId) return;
+    
+    const splitActivePC = (p: Pane): Pane => {
+      if (p.id === activePCId) {
         return {
           ...p,
-          split: 'horizontal',
+          split: 'vertical',
           children: [
             { ...p, id: generatePaneId() },
             { id: generatePaneId() },
           ],
-          size: 50,
         };
       }
       if (p.children) {
-        return { ...p, children: p.children.map(splitActivePane) };
+        return { ...p, children: p.children.map(splitActivePC) };
       }
       return p;
     };
     
-    const newPanes = splitActivePane(currentP);
+    const newPanes = splitActivePC(currentP);
     setWorkspacePanes(prev => ({ ...prev, [activeWorkspaceId]: newPanes }));
   }, [workspacePanes, activeWorkspaceId, activePaneIndex]);
 
@@ -96,25 +100,27 @@ function App() {
     const flatPanes = flattenPanesInTree(currentP);
     const activePane = flatPanes[activePaneIndex];
     
-    const splitActivePane = (p: Pane): Pane => {
-      if (p.id === activePane.id) {
+    const activePCId = findPCContainingPane(currentP, activePane.id);
+    
+    if (!activePCId) return;
+    
+    const addVerticalPane = (p: Pane): Pane => {
+      if (p.id === activePCId) {
         return {
           ...p,
-          split: 'vertical',
           children: [
-            { ...p, id: generatePaneId() },
+            ...(p.children || []),
             { id: generatePaneId() },
           ],
-          size: 50,
         };
       }
       if (p.children) {
-        return { ...p, children: p.children.map(splitActivePane) };
+        return { ...p, children: p.children.map(addVerticalPane) };
       }
       return p;
     };
     
-    const newPanes = splitActivePane(currentP);
+    const newPanes = addVerticalPane(currentP);
     setWorkspacePanes(prev => ({ ...prev, [activeWorkspaceId]: newPanes }));
   }, [workspacePanes, activeWorkspaceId, activePaneIndex]);
 
@@ -125,29 +131,113 @@ function App() {
     const flatPanes = flattenPanesInTree(currentP);
     const activePane = flatPanes[activePaneIndex];
     
-    const removePane = (p: Pane): Pane => {
-      if (p.id === activePane.id) {
-        return { id: generatePaneId() };
-      }
-      if (p.children) {
-        const newChildren = p.children
-          .map(removePane)
-          .filter((c, _, arr) => arr.some(child => child.id !== c.id) || arr.length > 1);
-        if (newChildren.length === 1 && !p.split) {
-          return newChildren[0];
+    const activePCId = findPCContainingPane(currentP, activePane.id);
+    
+    if (!activePCId) return;
+    
+    const removePaneFromPC = (p: Pane): Pane => {
+      if (p.id === activePCId) {
+        const newChildren = (p.children || []).filter(c => c.id !== activePane.id);
+        if (newChildren.length === 0) {
+          return { id: generatePaneId() };
         }
         return { ...p, children: newChildren };
+      }
+      if (p.children) {
+        return { ...p, children: p.children.map(removePaneFromPC) };
       }
       return p;
     };
     
-    const newPanes = removePane(currentP);
+    const newPanes = removePaneFromPC(currentP);
     setWorkspacePanes(prev => ({ ...prev, [activeWorkspaceId]: newPanes }));
     
     if (activePaneIndex > 0) {
       setActivePaneIndex(activePaneIndex - 1);
     }
   }, [workspacePanes, activeWorkspaceId, activePaneIndex, paneCount]);
+
+  const handleClosePaneById = useCallback((paneId: string) => {
+    const currentP = workspacePanes[activeWorkspaceId];
+    const flatPanes = flattenPanesInTree(currentP);
+    const targetPane = flatPanes.find(p => p.id === paneId);
+    
+    if (!targetPane) return;
+    
+    const pcs = currentP.children || [];
+    if (pcs.length === 1 && pcs[0].children?.length === 1) {
+      return;
+    }
+    
+    const activePCId = findPCContainingPane(currentP, paneId);
+    if (!activePCId) return;
+    
+    const removePaneFromPC = (p: Pane): Pane => {
+      if (p.id === activePCId) {
+        const newChildren = (p.children || []).filter(c => c.id !== paneId);
+        if (newChildren.length === 0) {
+          return { id: 'REMOVE_ME' } as unknown as Pane;
+        }
+        return { ...p, children: newChildren };
+      }
+      if (p.children) {
+        const newChildren = p.children.map(removePaneFromPC).filter(c => c.id !== 'REMOVE_ME');
+        if (newChildren.length === 0 && p.split === 'horizontal') {
+          return { id: generatePaneId() };
+        }
+        return { ...p, children: newChildren };
+      }
+      return p;
+    };
+    
+    const newPanes = removePaneFromPC(currentP);
+    setWorkspacePanes(prev => ({ ...prev, [activeWorkspaceId]: newPanes }));
+    
+    const newFlatPanes = flattenPanesInTree(newPanes);
+    if (activePaneIndex >= newFlatPanes.length) {
+      setActivePaneIndex(Math.max(0, newFlatPanes.length - 1));
+    }
+  }, [workspacePanes, activeWorkspaceId, activePaneIndex]);
+
+  const handleAddPaneToPC = useCallback((pcId: string) => {
+    const currentP = workspacePanes[activeWorkspaceId];
+    
+    const addPaneToPC = (p: Pane): Pane => {
+      if (p.id === pcId) {
+        return {
+          ...p,
+          children: [
+            ...(p.children || []),
+            { id: generatePaneId() },
+          ],
+        };
+      }
+      if (p.children) {
+        return { ...p, children: p.children.map(addPaneToPC) };
+      }
+      return p;
+    };
+    
+    const newPanes = addPaneToPC(currentP);
+    setWorkspacePanes(prev => ({ ...prev, [activeWorkspaceId]: newPanes }));
+  }, [workspacePanes, activeWorkspaceId]);
+
+  const handleAddPC = useCallback(() => {
+    const currentP = workspacePanes[activeWorkspaceId];
+    
+    const pane1 = { id: generatePaneId() };
+    const newPC: Pane = { id: generatePaneId(), split: 'vertical', children: [pane1] };
+    
+    const addPC = (p: Pane): Pane => {
+      return {
+        ...p,
+        children: [...(p.children || []), newPC],
+      };
+    };
+    
+    const newPanes = addPC(currentP);
+    setWorkspacePanes(prev => ({ ...prev, [activeWorkspaceId]: newPanes }));
+  }, [workspacePanes, activeWorkspaceId]);
 
   return (
     <div className="flex h-screen w-screen bg-bg font-mono overflow-hidden">
@@ -175,6 +265,10 @@ function App() {
             pane={currentPanes}
             activePaneIndex={activePaneIndex}
             onPaneClick={handlePaneClick}
+            onClosePane={handleClosePaneById}
+            onAddPane={handleAddPaneToPC}
+            onAddPC={handleAddPC}
+            canClosePane={paneCount > 1}
           />
         </div>
       </div>
@@ -183,10 +277,31 @@ function App() {
 }
 
 function flattenPanesInTree(pane: Pane): Pane[] {
-  if (!pane.children || pane.children.length === 0) {
-    return [pane];
+  if (!pane.children) return [pane];
+  
+  if (pane.split === 'horizontal') {
+    const result: Pane[] = [];
+    for (const pc of pane.children) {
+      if (pc.children) {
+        for (const p of pc.children) {
+          result.push(p);
+        }
+      }
+    }
+    return result;
   }
-  return pane.children.flatMap(flattenPanesInTree);
+  return pane.children;
+}
+
+function findPCContainingPane(pane: Pane, targetId: string): string | null {
+  if (!pane.children || pane.split !== 'horizontal') return null;
+  
+  for (const pc of pane.children) {
+    if (pc.children?.some(c => c.id === targetId)) {
+      return pc.id;
+    }
+  }
+  return null;
 }
 
 export default App;

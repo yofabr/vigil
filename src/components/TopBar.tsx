@@ -9,10 +9,11 @@ interface TopBarProps {
 }
 
 function countPanes(pane: Pane): number {
-  if (!pane.children || pane.children.length === 0) {
-    return 1;
+  if (!pane.children) return 1;
+  if (pane.split === 'horizontal') {
+    return pane.children.reduce((acc, pc) => acc + countPanes(pc), 0);
   }
-  return pane.children.reduce((acc, child) => acc + countPanes(child), 0);
+  return pane.children.length;
 }
 
 export function TopBar({

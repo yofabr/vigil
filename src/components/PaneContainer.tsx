@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Pane as PaneType } from '../types';
 import { Pane } from './Pane';
 
@@ -6,104 +6,154 @@ interface PaneContainerProps {
   pane: PaneType;
   activePaneIndex: number;
   onPaneClick: (index: number) => void;
-}
-
-function flattenPanesWithIndex(pane: PaneType, parentSplit: 'horizontal' | 'vertical' | null): Array<{ pane: PaneType; split: 'horizontal' | 'vertical' | null }> {
-  if (!pane.children || pane.children.length === 0) {
-    return [{ pane, split: parentSplit }];
-  }
-  return pane.children.flatMap(child => flattenPanesWithIndex(child, pane.split ?? parentSplit));
+  onClosePane?: (paneId: string) => void;
+  onAddPane?: (pcId: string) => void;
+  onAddPC?: () => void;
+  canClosePane?: boolean;
 }
 
 const MIN_SIZE = 150;
 
-interface ResizeState {
-  split: 'horizontal' | 'vertical';
-  siblingSizes: [number, number];
-  parentSize: number;
-}
-
-function ResizeHandle({ 
-  split, 
-  sizes, 
-  setSizes, 
-  sizeKey1, 
-  sizeKey2,
-  parentSize 
-}: { 
-  split: 'horizontal' | 'vertical';
+function VerticalPaneGroup({
+  pcPane,
+  sizes,
+  setSizes,
+  paneIndexOffset,
+  activePaneIndex,
+  onPaneClick,
+  onClosePane,
+  onAddPane,
+  canClosePane,
+}: {
+  pcPane: PaneType;
   sizes: Record<string, number>;
-  setSizes: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  sizeKey1: string;
-  sizeKey2: string;
-  parentSize: number;
+  setSizes: (s: Record<string, number>) => void;
+  paneIndexOffset: number;
+  activePaneIndex: number;
+  onPaneClick: (index: number) => void;
+  onClosePane?: (paneId: string) => void;
+  onAddPane?: (pcId: string) => void;
+  canClosePane?: boolean;
 }) {
-  const resizeRef = useRef<ResizeState | null>(null);
-  const isHorizontal = split === 'horizontal';
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const panes = pcPane.children || [];
+  const totalPanes = panes.length;
   
+  const getPaneSize = (index: number): number => {
+    if (totalPanes === 1) return 100;
+    const key = `${pcPane.id}-${index}`;
+    return sizes[key] ?? (100 / totalPanes);
+  };
+
+  const handleVerticalResize = useCallback((index: number, deltaY: number) => {
+    const paneAbove = getPaneSize(index);
+    const paneBelow = getPaneSize(index + 1);
+    const totalHeight = containerHeight;
+    
+    const deltaFraction = (deltaY / totalHeight) * 100;
+    let newAbove = paneAbove + deltaFraction;
+    let newBelow = paneBelow - deltaFraction;
+    
+    const minFraction = (MIN_SIZE / totalHeight) * 100;
+    
+    if (newAbove < minFraction) {
+      newAbove = minFraction;
+      newBelow = 100 - minFraction;
+    } else if (newBelow < minFraction) {
+      newBelow = minFraction;
+      newAbove = 100 - minFraction;
+    }
+    
+    setSizes({
+      ...sizes,
+      [`${pcPane.id}-${index}`]: newAbove,
+      [`${pcPane.id}-${index + 1}`]: newBelow,
+    });
+  }, [sizes, setSizes, containerHeight, pcPane.id]);
+
   return (
-    <div
-      className="w-1 bg-[#0f0f0f] hover:bg-white transition-colors duration-100 flex-shrink-0"
-      style={{ cursor: isHorizontal ? 'col-resize' : 'row-resize' }}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
+    <div ref={containerRef} className="flex flex-col h-full w-full relative">
+      <div className="h-6 flex items-center justify-end px-2 bg-bg border-b border-[#1a1a1a]">
+        {onAddPane && (
+          <button
+            onClick={() => onAddPane(pcPane.id)}
+            className="text-[#555555] hover:text-white text-xs px-1"
+          >
+            +
+          </button>
+        )}
+      </div>
+      <div className="flex-1 flex flex-col">
+        {panes.map((pane, idx) => {
+        const size = getPaneSize(idx);
+        const isActive = (paneIndexOffset + idx) === activePaneIndex;
         
-        const size1 = sizes[sizeKey1] ?? 0.5;
-        const size2 = sizes[sizeKey2] ?? 0.5;
-        
-        resizeRef.current = {
-          split,
-          siblingSizes: [size1, size2],
-          parentSize,
-        };
-        
-        const startPos = isHorizontal ? e.clientX : e.clientY;
-        
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-          if (!resizeRef.current) return;
-          
-          const currentPos = isHorizontal ? moveEvent.clientX : moveEvent.clientY;
-          const delta = currentPos - startPos;
-          const deltaFraction = delta / resizeRef.current.parentSize;
-          
-          const [s1, s2] = resizeRef.current.siblingSizes;
-          let newS1 = s1 + deltaFraction;
-          let newS2 = s2 - deltaFraction;
-          
-          const minFraction = MIN_SIZE / resizeRef.current.parentSize;
-          
-          if (newS1 < minFraction) {
-            newS1 = minFraction;
-            newS2 = 1 - minFraction;
-          } else if (newS2 < minFraction) {
-            newS2 = minFraction;
-            newS1 = 1 - minFraction;
-          }
-          
-          setSizes(prev => ({
-            ...prev,
-            [sizeKey1]: newS1,
-            [sizeKey2]: newS2,
-          }));
-          
-          resizeRef.current.siblingSizes = [newS1, newS2];
-        };
-        
-        const handleMouseUp = () => {
-          resizeRef.current = null;
-          document.removeEventListener('mousemove', handleMouseMove);
-          document.removeEventListener('mouseup', handleMouseUp);
-          document.body.style.cursor = 'default';
-          document.body.style.userSelect = 'auto';
-        };
-        
-        document.body.style.cursor = isHorizontal ? 'col-resize' : 'row-resize';
-        document.body.style.userSelect = 'none';
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-      }}
-    />
+        return (
+          <div
+            key={pane.id}
+            className="relative border-b border-[#1a1a1a]"
+            style={{
+              height: `${size}%`,
+              minHeight: MIN_SIZE,
+            }}
+          >
+            <Pane
+              index={paneIndexOffset + idx}
+              isActive={isActive}
+              totalPanes={totalPanes}
+              onClick={() => onPaneClick(paneIndexOffset + idx)}
+              onClose={onClosePane ? () => onClosePane(pane.id) : undefined}
+              canClose={canClosePane}
+            />
+            
+            {idx < panes.length - 1 && (
+              <div
+                className="absolute left-0 right-0 h-[4px] bg-transparent hover:bg-white/50 cursor-row-resize z-10"
+                style={{ top: '100%', transform: 'translateY(-50%)' }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const startY = e.clientY;
+                  const handleMouseMove = (moveEvent: MouseEvent) => {
+                    const deltaY = moveEvent.clientY - startY;
+                    handleVerticalResize(idx, deltaY);
+                  };
+                  
+                  const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                    document.body.style.cursor = 'default';
+                    document.body.style.userSelect = 'auto';
+                  };
+                  
+                  document.body.style.cursor = 'row-resize';
+                  document.body.style.userSelect = 'none';
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+      </div>
+    </div>
   );
 }
 
@@ -111,80 +161,62 @@ export function PaneContainer({
   pane,
   activePaneIndex,
   onPaneClick,
+  onClosePane,
+  onAddPane,
+  onAddPC,
+  canClosePane,
 }: PaneContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const [sizes, setSizes] = useState<Record<string, number>>({});
-  
-  const flatPanes = flattenPanesWithIndex(pane, null);
-  const totalPanes = flatPanes.length;
 
-  const renderPaneRecursive = (
-    p: PaneType, 
-    index: number,
-    path: string[] = [],
-    parentEl: HTMLDivElement | null = null
-  ): React.ReactNode => {
-    const isActive = index === activePaneIndex;
-    const isHorizontal = p.split === 'horizontal';
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
-    if (p.children && p.children.length > 0) {
-      const childCount = p.children.length;
-      
-      return (
-        <div
-          key={p.id}
-          ref={(el) => {
-            if (path.length === 0) {
-              (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-            }
-          }}
-          className={`flex h-full w-full ${isHorizontal ? 'flex-row' : 'flex-col'}`}
-        >
-          {p.children.map((child, idx) => {
-            const childPath = [...path, String(idx)];
-            const sizeKey = childPath.join('-');
-            const flexValue = sizes[sizeKey] ?? (1 / childCount);
-            
-            return (
-              <div 
-                key={child.id} 
-                className="relative"
-                style={{ 
-                  flex: `${flexValue} ${flexValue} 0%`,
-                  minWidth: isHorizontal ? MIN_SIZE + 'px' : undefined,
-                  minHeight: !isHorizontal ? MIN_SIZE + 'px' : undefined,
-                }}
-              >
-                {renderPaneRecursive(child, index, childPath, null)}
-                {idx < childCount - 1 && (
-                  <ResizeHandle
-                    split={p.split!}
-                    sizes={sizes}
-                    setSizes={setSizes}
-                    sizeKey1={sizeKey}
-                    sizeKey2={[...path, String(idx + 1)].join('-')}
-                    parentSize={parentEl ? (isHorizontal ? parentEl.offsetWidth : parentEl.offsetHeight) : (containerRef.current ? (isHorizontal ? containerRef.current.offsetWidth : containerRef.current.offsetHeight) : window.innerWidth)}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      );
+  const pcs = pane.children || [];
+  const totalPCs = pcs.length;
+
+  const getPCSize = (index: number): number => {
+    if (totalPCs === 1) return 100;
+    const key = `pc-${index}`;
+    return sizes[key] ?? (100 / totalPCs);
+  };
+
+  const handleHorizontalResize = useCallback((index: number, deltaX: number) => {
+    const pcLeft = getPCSize(index);
+    const pcRight = getPCSize(index + 1);
+    const totalWidth = containerWidth;
+    
+    const deltaFraction = (deltaX / totalWidth) * 100;
+    let newLeft = pcLeft + deltaFraction;
+    let newRight = pcRight - deltaFraction;
+    
+    const minFraction = (MIN_SIZE / totalWidth) * 100;
+    
+    if (newLeft < minFraction) {
+      newLeft = minFraction;
+      newRight = 100 - minFraction;
+    } else if (newRight < minFraction) {
+      newRight = minFraction;
+      newLeft = 100 - minFraction;
     }
     
-    return (
-      <div className="h-full w-full">
-        <Pane
-          key={p.id}
-          index={index}
-          isActive={isActive}
-          totalPanes={totalPanes}
-          onClick={() => onPaneClick(index)}
-        />
-      </div>
-    );
-  };
+    setSizes({
+      ...sizes,
+      [`pc-${index}`]: newLeft,
+      [`pc-${index + 1}`]: newRight,
+    });
+  }, [sizes, setSizes, containerWidth]);
 
   if (!pane.children || pane.children.length === 0) {
     return (
@@ -199,9 +231,82 @@ export function PaneContainer({
     );
   }
 
+  let paneIndexOffset = 0;
+
   return (
-    <div ref={containerRef} className="flex h-full w-full">
-      {renderPaneRecursive(pane, activePaneIndex, ['0'], null)}
+    <div ref={containerRef} className="flex flex-col h-full w-full relative">
+      {onAddPC && (
+        <div className="h-8 flex items-center justify-end px-2 border-b border-[#1a1a1a]">
+          <button
+            onClick={onAddPC}
+            className="text-[#555555] hover:text-white text-xs px-2 py-1 hover:bg-white/10 transition-colors font-mono"
+          >
+            + Add PC
+          </button>
+        </div>
+      )}
+      <div className="flex-1 flex relative">
+        {pcs.map((pc, pcIdx) => {
+        const size = getPCSize(pcIdx);
+        const pcPaneCount = pc.children?.length || 0;
+        const currentOffset = paneIndexOffset;
+        
+        paneIndexOffset += pcPaneCount;
+        
+        return (
+          <div
+            key={pc.id}
+            className="relative border-r border-[#1a1a1a]"
+            style={{
+              width: `${size}%`,
+              minWidth: MIN_SIZE,
+            }}
+          >
+            <VerticalPaneGroup
+              pcPane={pc}
+              sizes={sizes}
+              setSizes={setSizes}
+              paneIndexOffset={currentOffset}
+              activePaneIndex={activePaneIndex}
+              onPaneClick={onPaneClick}
+              onClosePane={onClosePane}
+              onAddPane={onAddPane}
+              canClosePane={canClosePane}
+            />
+            
+            {pcIdx < pcs.length - 1 && (
+              <div
+                className="absolute top-0 bottom-0 w-[4px] bg-transparent hover:bg-white/50 cursor-col-resize z-10"
+                style={{ left: '100%', transform: 'translateX(-50%)' }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const startX = e.clientX;
+                  
+                  const handleMouseMove = (moveEvent: MouseEvent) => {
+                    const deltaX = moveEvent.clientX - startX;
+                    handleHorizontalResize(pcIdx, deltaX);
+                  };
+                  
+                  const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                    document.body.style.cursor = 'default';
+                    document.body.style.userSelect = 'auto';
+                  };
+                  
+                  document.body.style.cursor = 'col-resize';
+                  document.body.style.userSelect = 'none';
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+      </div>
     </div>
   );
 }

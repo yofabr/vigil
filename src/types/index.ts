@@ -29,12 +29,12 @@ export function generatePaneId(): string {
 }
 
 export function createDefaultPanes(): Pane {
+  const pane1 = { id: generatePaneId() };
+  const pc1: Pane = { id: generatePaneId(), split: 'vertical', children: [pane1] };
+  
   return {
     id: generatePaneId(),
     split: 'horizontal',
-    children: [
-      { id: generatePaneId() },
-      { id: generatePaneId() },
-    ],
+    children: [pc1],
   };
 }
