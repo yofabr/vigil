@@ -17,6 +17,9 @@ pub struct Workspace {
     pub updated_at: String,
     pub last_opened_at: Option<String>,
     pub open_count: i32,
+    pub layout: Option<String>,
+    pub terminal_count: Option<i32>,
+    pub agent: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -44,6 +47,9 @@ pub struct WorkspaceUpdateInput {
     pub path: Option<String>,
     pub description: Option<String>,
     pub is_pinned: Option<i32>,
+    pub layout: Option<String>,
+    pub terminal_count: Option<i32>,
+    pub agent: Option<String>,
 }
 
 fn generate_workspace_id() -> String {
@@ -114,12 +120,15 @@ pub async fn create_workspace(
     let default_tree = default_pane_tree_json();
 
     let workspace = sqlx::query_as::<_, Workspace>(
-        "INSERT INTO workspaces (id, name, color, path) VALUES (?, ?, ?, ?) RETURNING *"
+        "INSERT INTO workspaces (id, name, color, path, layout, terminal_count, agent) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *"
     )
     .bind(&id)
     .bind(&input.name)
     .bind(&input.color)
     .bind(&input.path)
+    .bind(&input.layout)
+    .bind(&input.terminal_count)
+    .bind(&input.agent)
     .fetch_one(&state.db)
     .await
     .map_err(|e| e.to_string())?;
@@ -142,50 +151,49 @@ pub async fn update_workspace(
     id: String,
     input: WorkspaceUpdateInput,
 ) -> Result<Workspace, String> {
-    let mut updates = Vec::new();
-    let mut needs_comma = false;
+    let mut updates: Vec<&str> = Vec::new();
+    let mut has_updates = false;
 
     if input.name.is_some() {
         updates.push("name = ?");
-        needs_comma = true;
+        has_updates = true;
     }
     if input.color.is_some() {
-        if needs_comma {
-            updates.push(", color = ?");
-        } else {
-            updates.push("color = ?");
-            needs_comma = true;
-        }
+        updates.push("color = ?");
+        has_updates = true;
     }
     if input.path.is_some() {
-        if needs_comma {
-            updates.push(", path = ?");
-        } else {
-            updates.push("path = ?");
-            needs_comma = true;
-        }
+        updates.push("path = ?");
+        has_updates = true;
     }
     if input.description.is_some() {
-        if needs_comma {
-            updates.push(", description = ?");
-        } else {
-            updates.push("description = ?");
-            needs_comma = true;
-        }
+        updates.push("description = ?");
+        has_updates = true;
     }
     if input.is_pinned.is_some() {
-        if needs_comma {
-            updates.push(", is_pinned = ?");
-        } else {
-            updates.push("is_pinned = ?");
-        }
+        updates.push("is_pinned = ?");
+        has_updates = true;
+    }
+    if input.layout.is_some() {
+        updates.push("layout = ?");
+        has_updates = true;
+    }
+    if input.terminal_count.is_some() {
+        updates.push("terminal_count = ?");
+        has_updates = true;
+    }
+    if input.agent.is_some() {
+        updates.push("agent = ?");
+        has_updates = true;
     }
 
-    updates.push(", updated_at = datetime('now')");
+    if !has_updates {
+        return Err("No fields to update".to_string());
+    }
 
     let query = format!(
-        "UPDATE workspaces SET {} WHERE id = ? RETURNING *",
-        updates.join("")
+        "UPDATE workspaces SET {}, updated_at = datetime('now') WHERE id = ? RETURNING *",
+        updates.join(", ")
     );
 
     let mut query_builder = sqlx::query_as::<_, Workspace>(&query).bind(&id);
@@ -204,6 +212,15 @@ pub async fn update_workspace(
     }
     if let Some(is_pinned) = input.is_pinned {
         query_builder = query_builder.bind(is_pinned);
+    }
+    if let Some(ref layout) = input.layout {
+        query_builder = query_builder.bind(layout);
+    }
+    if let Some(terminal_count) = input.terminal_count {
+        query_builder = query_builder.bind(terminal_count);
+    }
+    if let Some(ref agent) = input.agent {
+        query_builder = query_builder.bind(agent);
     }
 
     query_builder
