@@ -1,0 +1,12 @@
+[app]
+theme = "dark"
+save_interval = 30
+
+[ui]
+default_sidebar_width = 200
+show_status_bar = true
+
+[terminal]
+default_shell = "bash"
+font_size = 12
+font_family = "JetBrains Mono"
