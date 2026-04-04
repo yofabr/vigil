@@ -1,14 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar, TopBar, PaneContainer } from "../components";
-import {
-  Workspace,
-  Pane,
-  WORKSPACE_COLORS,
-  generateWorkspaceName,
-  createDefaultPanes,
-  generatePaneId,
-} from "../types";
+import { Workspace, Pane, WORKSPACE_COLORS, createDefaultPanes, generatePaneId } from "../types";
 
 function countAllPanes(pane: Pane): number {
   if (!pane.children) return 1;
@@ -84,19 +77,8 @@ export function WorkspaceView() {
   );
 
   const handleNewWorkspace = useCallback(() => {
-    const newIndex = workspaces.length + 1;
-    const newWorkspace: Workspace = {
-      id: `ws-${String(newIndex).padStart(2, "0")}`,
-      name: generateWorkspaceName(workspaces.length),
-      color: WORKSPACE_COLORS[newIndex % WORKSPACE_COLORS.length],
-    };
-
-    setWorkspaces((prev) => [...prev, newWorkspace]);
-    setWorkspacePanes((prev) => ({
-      ...prev,
-      [newWorkspace.id]: createDefaultPanes(),
-    }));
-  }, [workspaces]);
+    navigate("/workspace/create");
+  }, [navigate]);
 
   const handlePaneClick = useCallback((index: number) => {
     setActivePaneIndex(index);
