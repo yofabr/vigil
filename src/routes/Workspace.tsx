@@ -291,7 +291,7 @@ export function WorkspaceView() {
   }, [navigate]);
 
   return (
-    <div className="flex h-screen w-screen bg-bg font-mono overflow-hidden">
+    <div className="flex h-full w-full bg-bg font-mono overflow-hidden">
       <Sidebar
         width={sidebarWidth}
         onWidthChange={setSidebarWidth}
@@ -312,7 +312,7 @@ export function WorkspaceView() {
           onClosePane={handleClosePane}
         />
 
-        <div className="flex-1 bg-bg p-1 overflow-hidden">
+        <div className="flex-1 bg-bg overflow-hidden">
           <PaneContainer
             pane={currentPanes}
             activePaneIndex={activePaneIndex}

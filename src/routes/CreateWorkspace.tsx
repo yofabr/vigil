@@ -111,7 +111,7 @@ export function CreateWorkspace() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen bg-bg font-mono overflow-hidden">
+    <div className="flex h-full w-full bg-bg font-mono overflow-hidden">
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-4xl">
           <div className="mb-4">

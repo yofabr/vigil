@@ -19,6 +19,7 @@
   --color-text-inactive: #555555;
   --color-pane-border: #1a1a1a;
   --color-divider: #0f0f0f;
+  --color-border-light: #2a2a2a;
 }
 
 * {
@@ -30,6 +31,7 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background: transparent;
 }
 
 ::-webkit-scrollbar {
