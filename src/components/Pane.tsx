@@ -17,11 +17,11 @@ export function Pane({
   return (
     <div 
       onClick={onClick}
-      className="h-full flex flex-col bg-surface cursor-pointer"
+      className="h-full flex flex-col bg-surface"
       style={{ border: `1px solid ${borderColor}` }}
     >
       <div 
-        className="h-6 flex items-center justify-between px-2 bg-bg"
+        className="h-6 flex items-center justify-between px-2 bg-bg cursor-pointer"
         style={{ borderBottom: `1px solid ${borderColor}` }}
       >
         <span className="text-[10px] text-[#555555] uppercase tracking-wider font-mono">
@@ -32,7 +32,14 @@ export function Pane({
         </span>
       </div>
       
-      <div className="flex-1 bg-[#0d0d0d] overflow-hidden">
+      <div className="flex-1 bg-[#0d0d0d] overflow-hidden p-2">
+        <pre className="text-[10px] text-[#555555] font-mono">
+{`$ ./vigil --workspace ws-${String(index + 1).padStart(2, '0')}
+> Initializing terminal...
+> Workspace loaded successfully
+
+$ _`}
+        </pre>
       </div>
     </div>
   );

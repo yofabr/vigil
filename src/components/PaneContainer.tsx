@@ -18,9 +18,9 @@ function flattenPanesWithIndex(pane: PaneType, parentSplit: 'horizontal' | 'vert
 const MIN_SIZE = 150;
 
 interface ResizeState {
-  parentRef: HTMLDivElement;
   split: 'horizontal' | 'vertical';
   siblingSizes: [number, number];
+  parentSize: number;
 }
 
 function ResizeHandle({ 
@@ -28,52 +28,50 @@ function ResizeHandle({
   sizes, 
   setSizes, 
   sizeKey1, 
-  sizeKey2 
+  sizeKey2,
+  parentSize 
 }: { 
   split: 'horizontal' | 'vertical';
   sizes: Record<string, number>;
   setSizes: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   sizeKey1: string;
   sizeKey2: string;
+  parentSize: number;
 }) {
   const resizeRef = useRef<ResizeState | null>(null);
   const isHorizontal = split === 'horizontal';
   
   return (
     <div
-      className="w-1 bg-[#0f0f0f] hover:bg-white transition-colors duration-100 cursor-col-resize flex-shrink-0"
+      className="w-1 bg-[#0f0f0f] hover:bg-white transition-colors duration-100 flex-shrink-0"
       style={{ cursor: isHorizontal ? 'col-resize' : 'row-resize' }}
       onMouseDown={(e) => {
         e.preventDefault();
         e.stopPropagation();
         
-        const parent = e.currentTarget.parentElement as HTMLDivElement;
-        if (!parent) return;
-        
         const size1 = sizes[sizeKey1] ?? 0.5;
         const size2 = sizes[sizeKey2] ?? 0.5;
         
         resizeRef.current = {
-          parentRef: parent,
           split,
           siblingSizes: [size1, size2],
+          parentSize,
         };
         
         const startPos = isHorizontal ? e.clientX : e.clientY;
-        const parentSize = isHorizontal ? parent.offsetWidth : parent.offsetHeight;
         
         const handleMouseMove = (moveEvent: MouseEvent) => {
           if (!resizeRef.current) return;
           
           const currentPos = isHorizontal ? moveEvent.clientX : moveEvent.clientY;
           const delta = currentPos - startPos;
-          const deltaFraction = delta / parentSize;
+          const deltaFraction = delta / resizeRef.current.parentSize;
           
           const [s1, s2] = resizeRef.current.siblingSizes;
           let newS1 = s1 + deltaFraction;
           let newS2 = s2 - deltaFraction;
           
-          const minFraction = MIN_SIZE / parentSize;
+          const minFraction = MIN_SIZE / resizeRef.current.parentSize;
           
           if (newS1 < minFraction) {
             newS1 = minFraction;
@@ -114,6 +112,7 @@ export function PaneContainer({
   activePaneIndex,
   onPaneClick,
 }: PaneContainerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [sizes, setSizes] = useState<Record<string, number>>({});
   
   const flatPanes = flattenPanesWithIndex(pane, null);
@@ -122,9 +121,11 @@ export function PaneContainer({
   const renderPaneRecursive = (
     p: PaneType, 
     index: number,
-    path: string[] = []
+    path: string[] = [],
+    parentEl: HTMLDivElement | null = null
   ): React.ReactNode => {
     const isActive = index === activePaneIndex;
+    const isHorizontal = p.split === 'horizontal';
 
     if (p.children && p.children.length > 0) {
       const childCount = p.children.length;
@@ -132,31 +133,37 @@ export function PaneContainer({
       return (
         <div
           key={p.id}
-          className={`flex h-full w-full ${p.split === 'horizontal' ? 'flex-row' : 'flex-col'}`}
+          ref={(el) => {
+            if (path.length === 0) {
+              (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+            }
+          }}
+          className={`flex h-full w-full ${isHorizontal ? 'flex-row' : 'flex-col'}`}
         >
           {p.children.map((child, idx) => {
             const childPath = [...path, String(idx)];
             const sizeKey = childPath.join('-');
-            
-            const otherIdx = idx === 0 ? 1 : 0;
-            const otherPath = [...path, String(otherIdx)];
-            const otherSizeKey = otherPath.join('-');
-            
             const flexValue = sizes[sizeKey] ?? (1 / childCount);
             
             return (
               <div 
                 key={child.id} 
-                style={{ flex: flexValue, minWidth: MIN_SIZE + 'px', minHeight: MIN_SIZE + 'px' }}
+                className="relative"
+                style={{ 
+                  flex: `${flexValue} ${flexValue} 0%`,
+                  minWidth: isHorizontal ? MIN_SIZE + 'px' : undefined,
+                  minHeight: !isHorizontal ? MIN_SIZE + 'px' : undefined,
+                }}
               >
-                {renderPaneRecursive(child, index, childPath)}
+                {renderPaneRecursive(child, index, childPath, null)}
                 {idx < childCount - 1 && (
                   <ResizeHandle
                     split={p.split!}
                     sizes={sizes}
                     setSizes={setSizes}
                     sizeKey1={sizeKey}
-                    sizeKey2={otherSizeKey}
+                    sizeKey2={[...path, String(idx + 1)].join('-')}
+                    parentSize={parentEl ? (isHorizontal ? parentEl.offsetWidth : parentEl.offsetHeight) : (containerRef.current ? (isHorizontal ? containerRef.current.offsetWidth : containerRef.current.offsetHeight) : window.innerWidth)}
                   />
                 )}
               </div>
@@ -167,30 +174,34 @@ export function PaneContainer({
     }
     
     return (
-      <Pane
-        key={p.id}
-        index={index}
-        isActive={isActive}
-        totalPanes={totalPanes}
-        onClick={() => onPaneClick(index)}
-      />
+      <div className="h-full w-full">
+        <Pane
+          key={p.id}
+          index={index}
+          isActive={isActive}
+          totalPanes={totalPanes}
+          onClick={() => onPaneClick(index)}
+        />
+      </div>
     );
   };
 
   if (!pane.children || pane.children.length === 0) {
     return (
-      <Pane
-        index={0}
-        isActive={activePaneIndex === 0}
-        totalPanes={1}
-        onClick={() => onPaneClick(0)}
-      />
+      <div className="h-full w-full">
+        <Pane
+          index={0}
+          isActive={activePaneIndex === 0}
+          totalPanes={1}
+          onClick={() => onPaneClick(0)}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="flex h-full w-full">
-      {renderPaneRecursive(pane, activePaneIndex, ['0'])}
+    <div ref={containerRef} className="flex h-full w-full">
+      {renderPaneRecursive(pane, activePaneIndex, ['0'], null)}
     </div>
   );
 }
