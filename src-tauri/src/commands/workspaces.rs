@@ -32,6 +32,9 @@ pub struct WorkspaceCreateInput {
     pub name: String,
     pub color: String,
     pub path: Option<String>,
+    pub layout: Option<String>,
+    pub terminal_count: Option<i32>,
+    pub agent: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
