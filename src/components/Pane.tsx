@@ -5,6 +5,7 @@ interface PaneProps {
   onClick: () => void;
   onClose?: () => void;
   canClose?: boolean;
+  workspacePath?: string;
 }
 
 export function Pane({ 
@@ -14,6 +15,7 @@ export function Pane({
   onClick,
   onClose,
   canClose = true,
+  workspacePath,
 }: PaneProps) {
   const label = `PANE ${index + 1}`;
   const borderColor = isActive ? '#ffffff' : '#1a1a1a';
@@ -27,9 +29,16 @@ export function Pane({
         className="h-6 flex items-center justify-between px-2 bg-bg cursor-pointer"
         style={{ borderBottom: `1px solid ${borderColor}` }}
       >
-        <span className="text-[10px] text-[#555555] uppercase tracking-wider font-mono">
-          {label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-[#555555] uppercase tracking-wider font-mono">
+            {label}
+          </span>
+          {workspacePath && (
+            <span className="text-[10px] text-[#555555] font-mono truncate max-w-[200px]">
+              {workspacePath}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {onClose && canClose && (
             <button

@@ -11,6 +11,13 @@ export interface Workspace {
   id: string;
   name: string;
   color: string;
+  path?: string;
+  description?: string;
+  isPinned?: boolean;
+  openCount?: number;
+  lastOpenedAt?: string;
+  agent?: string;
+  terminalCount?: number;
 }
 
 export const WORKSPACE_COLORS = [

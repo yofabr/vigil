@@ -26,6 +26,7 @@ export function Sidebar({
   onOpenSettings,
 }: SidebarProps) {
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.dataTransfer.setData('text/plain', String(index));
     e.dataTransfer.effectAllowed = 'move';
@@ -75,6 +76,61 @@ export function Sidebar({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  const pinnedWorkspaces = workspaces.filter(w => w.isPinned);
+  const unpinnedWorkspaces = workspaces.filter(w => !w.isPinned);
+
+  const renderWorkspaceItem = (ws: Workspace, isPinnedSection: boolean) => {
+    const isActive = ws.id === activeWorkspaceId;
+    const adjustedIndex = isPinnedSection 
+      ? pinnedWorkspaces.findIndex(w => w.id === ws.id)
+      : pinnedWorkspaces.length + unpinnedWorkspaces.findIndex(w => w.id === ws.id);
+
+    return (
+      <div
+        key={ws.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, adjustedIndex)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, adjustedIndex)}
+        onClick={() => onWorkspaceSelect(ws.id)}
+        className={`
+          flex flex-col gap-1 px-3 py-2 cursor-pointer select-none
+          transition-colors duration-150
+          ${isActive 
+            ? 'bg-[#0d0d0d] text-[#ffffff]' 
+            : 'text-[#555555] hover:bg-[#0d0d0d] hover:text-[#ffffff]'
+          }
+        `}
+      >
+        <div className="flex items-center gap-2">
+          {ws.isPinned && <span className="text-[10px] text-[#555555]">★</span>}
+          <span className="text-[10px] opacity-50">⇿</span>
+          <span 
+            className="w-2 h-2 flex-shrink-0" 
+            style={{ backgroundColor: ws.color }}
+          />
+          <span className="text-xs truncate flex-1">{ws.name}</span>
+        </div>
+        
+        <div className="flex flex-col gap-0.5 ml-4 text-[9px] text-[#555555]">
+          {ws.path && (
+            <span className="truncate opacity-70">{ws.path}</span>
+          )}
+          {ws.description && (
+            <span className="truncate opacity-50">{ws.description}</span>
+          )}
+          <div className="flex gap-2 opacity-50">
+            <span>Agent: {ws.agent || 'none'}</span>
+            <span>·</span>
+            <span>Terms: {ws.terminalCount || 1}</span>
+            <span>·</span>
+            <span>{ws.openCount || 0} opens</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <aside 
       className="h-full bg-bg border-r border-[#1a1a1a] flex flex-col font-mono relative"
@@ -87,49 +143,35 @@ export function Sidebar({
         onMouseDown={handleResizeStart}
       />
       
-      {/* Wordmark */}
-      <div className="h-8 flex items-center px-3 border-b border-[#1a1a1a]">
-        <div className="flex items-center gap-1 text-[#ffffff] text-xs tracking-wider">
-          <span className="text-[#ffffff]">{'>'}</span>
-          <span>VIGIL</span>
-        </div>
-      </div>
-
       {/* Workspace List */}
       <div className="flex-1 overflow-y-auto py-2">
-        {workspaces.map((ws, index) => {
-          const isActive = ws.id === activeWorkspaceId;
-          return (
-            <div
-              key={ws.id}
-              draggable
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, index)}
-              onClick={() => onWorkspaceSelect(ws.id)}
-              className={`
-                flex items-center gap-2 px-3 py-2 cursor-pointer select-none
-                transition-colors duration-150
-                ${isActive 
-                  ? 'bg-[#0d0d0d] text-[#ffffff] border-l-2 border-[#ffffff]' 
-                  : 'text-[#555555] hover:bg-[#0d0d0d] hover:text-[#ffffff]'
-                }
-              `}
-            >
-              {/* Drag handle */}
-              <span className="text-[#555555] text-xs opacity-50">⇿</span>
-              
-              {/* Status dot */}
-              <span 
-                className="w-2 h-2 flex-shrink-0" 
-                style={{ backgroundColor: ws.color }}
-              />
-              
-              {/* Workspace name */}
-              <span className="text-xs truncate">{ws.name}</span>
-            </div>
-          );
-        })}
+        {pinnedWorkspaces.length > 0 && (
+          <div className="px-3 py-1">
+            <span className="text-[9px] text-[#555555] uppercase tracking-wider">
+              Pinned
+            </span>
+          </div>
+        )}
+        {pinnedWorkspaces.map((ws) => renderWorkspaceItem(ws, true))}
+        
+        {unpinnedWorkspaces.length > 0 && (
+          <>
+            {pinnedWorkspaces.length > 0 && (
+              <div className="px-3 py-1 mt-2">
+                <span className="text-[9px] text-[#555555] uppercase tracking-wider">
+                  Workspaces
+                </span>
+              </div>
+            )}
+            {unpinnedWorkspaces.map((ws) => renderWorkspaceItem(ws, false))}
+          </>
+        )}
+        
+        {workspaces.length === 0 && (
+          <div className="px-3 py-4 text-center text-[10px] text-[#555555]">
+            No workspaces yet
+          </div>
+        )}
       </div>
 
       {/* New Workspace Button */}

@@ -10,6 +10,9 @@ interface PaneContainerProps {
   onAddPane?: (pcId: string) => void;
   onAddPC?: () => void;
   canClosePane?: boolean;
+  workspacePath?: string;
+  workspaceAgent?: string;
+  terminalCount?: number;
 }
 
 const MIN_SIZE = 150;
@@ -24,6 +27,7 @@ function VerticalPaneGroup({
   onClosePane,
   onAddPane,
   canClosePane,
+  workspacePath,
 }: {
   pcPane: PaneType;
   sizes: Record<string, number>;
@@ -34,6 +38,7 @@ function VerticalPaneGroup({
   onClosePane?: (paneId: string) => void;
   onAddPane?: (pcId: string) => void;
   canClosePane?: boolean;
+  workspacePath?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -119,6 +124,7 @@ function VerticalPaneGroup({
               onClick={() => onPaneClick(paneIndexOffset + idx)}
               onClose={onClosePane ? () => onClosePane(pane.id) : undefined}
               canClose={canClosePane}
+              workspacePath={workspacePath}
             />
             
             {idx < panes.length - 1 && (
@@ -165,6 +171,9 @@ export function PaneContainer({
   onAddPane,
   onAddPC,
   canClosePane,
+  workspacePath,
+  workspaceAgent,
+  terminalCount,
 }: PaneContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -182,6 +191,10 @@ export function PaneContainer({
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    setSizes({});
+  }, [pane.id, pane.children?.length]);
 
   const pcs = pane.children || [];
   const totalPCs = pcs.length;
@@ -226,6 +239,7 @@ export function PaneContainer({
           isActive={activePaneIndex === 0}
           totalPanes={1}
           onClick={() => onPaneClick(0)}
+          workspacePath={workspacePath}
         />
       </div>
     );
@@ -236,7 +250,11 @@ export function PaneContainer({
   return (
     <div ref={containerRef} className="flex flex-col h-full w-full relative">
       {onAddPC && (
-        <div className="h-8 flex items-center justify-end px-2 border-b border-[#1a1a1a]">
+        <div className="h-8 flex items-center justify-between px-2 border-b border-[#1a1a1a]">
+          <div className="flex items-center gap-3 text-[10px] text-[#555555] font-mono">
+            <span>Agent: {workspaceAgent || 'none'}</span>
+            <span>Terms: {terminalCount || 1}</span>
+          </div>
           <button
             onClick={onAddPC}
             className="text-[#555555] hover:text-white text-xs px-2 py-1 hover:bg-white/10 transition-colors font-mono"
@@ -272,6 +290,7 @@ export function PaneContainer({
               onClosePane={onClosePane}
               onAddPane={onAddPane}
               canClosePane={canClosePane}
+              workspacePath={workspacePath}
             />
             
             {pcIdx < pcs.length - 1 && (
