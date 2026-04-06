@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { ChevronLeft, ChevronRight, Pin, Plus, Settings } from 'lucide-react';
 import { Workspace } from '../types';
 
 interface SidebarProps {
@@ -12,7 +13,8 @@ interface SidebarProps {
   onOpenSettings?: () => void;
 }
 
-const SIDEBAR_MIN_WIDTH = 200;
+const SIDEBAR_EXPANDED_WIDTH = 220;
+const SIDEBAR_COLLAPSED_WIDTH = 56;
 const SIDEBAR_MAX_WIDTH = 400;
 
 export function Sidebar({
@@ -26,6 +28,11 @@ export function Sidebar({
   onOpenSettings,
 }: SidebarProps) {
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const isCollapsed = width <= SIDEBAR_COLLAPSED_WIDTH + 10;
+  
+  const handleToggleCollapse = () => {
+    onWidthChange(isCollapsed ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH);
+  };
   
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.dataTransfer.setData('text/plain', String(index));
@@ -58,7 +65,7 @@ export function Sidebar({
     const handleMouseMove = (moveEvent: MouseEvent) => {
       if (!resizeRef.current) return;
       const delta = moveEvent.clientX - resizeRef.current.startX;
-      const newWidth = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, resizeRef.current.startWidth + delta));
+      const newWidth = Math.max(SIDEBAR_COLLAPSED_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, resizeRef.current.startWidth + delta));
       onWidthChange(newWidth);
     };
     
@@ -85,6 +92,40 @@ export function Sidebar({
       ? pinnedWorkspaces.findIndex(w => w.id === ws.id)
       : pinnedWorkspaces.length + unpinnedWorkspaces.findIndex(w => w.id === ws.id);
 
+    if (isCollapsed) {
+      return (
+        <div
+          key={ws.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, adjustedIndex)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, adjustedIndex)}
+          onClick={() => onWorkspaceSelect(ws.id)}
+          className={`
+            flex items-center justify-center py-3 cursor-pointer select-none
+            transition-colors duration-150 relative
+            ${isActive 
+              ? 'bg-surface text-[#ffffff]' 
+              : 'text-[#aaaaaa] hover:bg-[#333333] hover:text-[#ffffff]'
+            }
+          `}
+          title={ws.name}
+        >
+          <div className="flex flex-col items-center gap-1">
+            <div className="relative">
+              <span 
+                className="w-3 h-3 block rounded-sm" 
+                style={{ backgroundColor: ws.color }}
+              />
+              {ws.isPinned && (
+                <Pin className="absolute -top-1 -right-1 w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         key={ws.id}
@@ -103,8 +144,7 @@ export function Sidebar({
         `}
       >
         <div className="flex items-center gap-2">
-          {ws.isPinned && <span className="text-[10px] text-[#aaaaaa]">★</span>}
-          <span className="text-[10px] opacity-50">⇿</span>
+          {ws.isPinned && <Pin className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
           <span 
             className="w-2 h-2 flex-shrink-0" 
             style={{ backgroundColor: ws.color }}
@@ -137,15 +177,35 @@ export function Sidebar({
       style={{ width: width + 'px' }}
     >
       {/* Resize Handle */}
-      <div
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-white transition-colors duration-100"
-        style={{ cursor: 'col-resize' }}
-        onMouseDown={handleResizeStart}
-      />
+      {!isCollapsed && (
+        <div
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-white transition-colors duration-100 z-10"
+          style={{ cursor: 'col-resize' }}
+          onMouseDown={handleResizeStart}
+        />
+      )}
       
+      {/* Collapse Toggle */}
+      <button
+        onClick={handleToggleCollapse}
+        className={`
+          absolute top-1/2 -translate-y-1/2 z-20
+          flex items-center justify-center
+          w-5 h-10 
+          bg-bg border border-border-inactive
+          text-[#aaaaaa] hover:text-white hover:bg-[#333333]
+          cursor-pointer
+          ${isCollapsed ? 'right-0 rounded-l-md' : 'left-0 rounded-r-md'}
+        `}
+        style={isCollapsed ? { left: 0 } : { right: 0 }}
+        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+      </button>
+
       {/* Workspace List */}
       <div className="flex-1 overflow-y-auto py-2">
-        {pinnedWorkspaces.length > 0 && (
+        {pinnedWorkspaces.length > 0 && !isCollapsed && (
           <div className="px-3 py-1">
             <span className="text-[9px] text-[#888888] uppercase tracking-wider">
               Pinned
@@ -156,7 +216,7 @@ export function Sidebar({
         
         {unpinnedWorkspaces.length > 0 && (
           <>
-            {pinnedWorkspaces.length > 0 && (
+            {(!isCollapsed && pinnedWorkspaces.length > 0) && (
               <div className="px-3 py-1 mt-2">
                 <span className="text-[9px] text-[#888888] uppercase tracking-wider">
                   Workspaces
@@ -167,7 +227,7 @@ export function Sidebar({
           </>
         )}
         
-        {workspaces.length === 0 && (
+        {workspaces.length === 0 && !isCollapsed && (
           <div className="px-3 py-4 text-center text-[10px] text-[#aaaaaa]">
             No workspaces yet
           </div>
@@ -175,44 +235,67 @@ export function Sidebar({
       </div>
 
       {/* New Workspace Button */}
-      <div className="p-2 border-t border-border-inactive">
-        <button
-          onClick={onNewWorkspace}
-          className="
-            w-full px-3 py-2 
-            border border-border-inactive 
-            bg-transparent 
-            text-[#aaaaaa] 
-            text-xs 
-            font-mono 
-            hover:bg-[#ffffff] 
-            hover:text-bg 
-            transition-colors 
-            duration-150
-            cursor-pointer
-          "
-        >
-          [ + new workspace ]
-        </button>
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            className="
-              w-full px-3 py-2 mt-2
-              border border-border-inactive 
-              bg-transparent 
-              text-[#aaaaaa] 
-              text-xs 
-              font-mono 
-              hover:bg-[#ffffff] 
-              hover:text-bg 
-              transition-colors 
-              duration-150
-              cursor-pointer
-            "
-          >
-            [ settings ]
-          </button>
+      <div className={`p-2 border-t border-border-inactive ${isCollapsed ? 'px-1' : ''}`}>
+        {isCollapsed ? (
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={onNewWorkspace}
+              className="flex items-center justify-center py-2 border border-border-inactive bg-transparent text-[#aaaaaa] hover:text-white hover:bg-[#333333] transition-colors duration-150 cursor-pointer"
+              title="New workspace"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="flex items-center justify-center py-2 border border-border-inactive bg-transparent text-[#aaaaaa] hover:text-white hover:bg-[#333333] transition-colors duration-150 cursor-pointer"
+                title="Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={onNewWorkspace}
+              className="
+                w-full px-3 py-2 
+                border border-border-inactive 
+                bg-transparent 
+                text-[#aaaaaa] 
+                text-xs 
+                font-mono 
+                hover:bg-[#ffffff] 
+                hover:text-bg 
+                transition-colors 
+                duration-150
+                cursor-pointer
+              "
+            >
+              [ + new workspace ]
+            </button>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="
+                  w-full px-3 py-2 mt-2
+                  border border-border-inactive 
+                  bg-transparent 
+                  text-[#aaaaaa] 
+                  text-xs 
+                  font-mono 
+                  hover:bg-[#ffffff] 
+                  hover:text-bg 
+                  transition-colors 
+                  duration-150
+                  cursor-pointer
+                "
+              >
+                [ settings ]
+              </button>
+            )}
+          </>
         )}
       </div>
     </aside>

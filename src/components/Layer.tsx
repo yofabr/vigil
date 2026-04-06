@@ -1,24 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Layers, MousePointer, Info } from 'lucide-react';
 import { Pane as PaneType } from '../types';
 import { Pane } from './Pane';
 
-interface PaneContainerProps {
+interface LayerProps {
   pane: PaneType;
   activePaneIndex: number;
   onPaneClick: (index: number) => void;
   onClosePane?: (paneId: string) => void;
-  onAddPane?: (pcId: string) => void;
-  onAddPC?: () => void;
-  canClosePane?: boolean;
+  onAddPane?: (layerId: string) => void;
+  onCloseLayer?: (layerId: string) => void;
   workspacePath?: string;
-  workspaceAgent?: string;
-  terminalCount?: number;
 }
 
 const MIN_SIZE = 150;
 
 function VerticalPaneGroup({
-  pcPane,
+  layerPane,
+  layerNumber,
   sizes,
   setSizes,
   paneIndexOffset,
@@ -26,18 +25,19 @@ function VerticalPaneGroup({
   onPaneClick,
   onClosePane,
   onAddPane,
-  canClosePane,
+  onCloseLayer,
   workspacePath,
 }: {
-  pcPane: PaneType;
+  layerPane: PaneType;
+  layerNumber: number;
   sizes: Record<string, number>;
   setSizes: (s: Record<string, number>) => void;
   paneIndexOffset: number;
   activePaneIndex: number;
   onPaneClick: (index: number) => void;
   onClosePane?: (paneId: string) => void;
-  onAddPane?: (pcId: string) => void;
-  canClosePane?: boolean;
+  onAddPane?: (layerId: string) => void;
+  onCloseLayer?: (layerId: string) => void;
   workspacePath?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,12 +56,12 @@ function VerticalPaneGroup({
     return () => observer.disconnect();
   }, []);
 
-  const panes = pcPane.children || [];
+  const panes = layerPane.children || [];
   const totalPanes = panes.length;
   
   const getPaneSize = (index: number): number => {
     if (totalPanes === 1) return 100;
-    const key = `${pcPane.id}-${index}`;
+    const key = `${layerPane.id}-${index}`;
     return sizes[key] ?? (100 / totalPanes);
   };
 
@@ -86,22 +86,38 @@ function VerticalPaneGroup({
     
     setSizes({
       ...sizes,
-      [`${pcPane.id}-${index}`]: newAbove,
-      [`${pcPane.id}-${index + 1}`]: newBelow,
+      [`${layerPane.id}-${index}`]: newAbove,
+      [`${layerPane.id}-${index + 1}`]: newBelow,
     });
-  }, [sizes, setSizes, containerHeight, pcPane.id]);
+  }, [sizes, setSizes, containerHeight, layerPane.id]);
 
   return (
     <div ref={containerRef} className="flex flex-col h-full w-full relative">
-      <div className="h-6 flex items-center justify-end px-2 bg-bg border-b border-border-inactive">
-        {onAddPane && (
-          <button
-            onClick={() => onAddPane(pcPane.id)}
-            className="text-[#aaaaaa] hover:text-white text-xs px-1"
-          >
-            +
-          </button>
-        )}
+      <div className="h-6 flex items-center justify-between px-2 bg-bg border-b border-border-inactive">
+        <div className="flex items-center gap-1.5">
+          <Layers className="w-3 h-3 text-[#666666]" />
+          <span className="text-[10px] text-[#aaaaaa] font-mono">Layer {layerNumber}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {onCloseLayer && (
+            <button
+              onClick={() => onCloseLayer(layerPane.id)}
+              className="text-[#aaaaaa] hover:text-red-400 text-xs px-1"
+              title="Close layer"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+          {onAddPane && (
+            <button
+              onClick={() => onAddPane(layerPane.id)}
+              className="text-[#aaaaaa] hover:text-white text-xs px-1"
+              title="Add pane"
+            >
+              +
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex-1 flex flex-col">
         {panes.map((pane, idx) => {
@@ -123,7 +139,6 @@ function VerticalPaneGroup({
               totalPanes={totalPanes}
               onClick={() => onPaneClick(paneIndexOffset + idx)}
               onClose={onClosePane ? () => onClosePane(pane.id) : undefined}
-              canClose={canClosePane}
               workspacePath={workspacePath}
             />
             
@@ -163,18 +178,15 @@ function VerticalPaneGroup({
   );
 }
 
-export function PaneContainer({
+export function Layer({
   pane,
   activePaneIndex,
   onPaneClick,
   onClosePane,
   onAddPane,
-  onAddPC,
-  canClosePane,
+  onCloseLayer,
   workspacePath,
-  workspaceAgent,
-  terminalCount,
-}: PaneContainerProps) {
+}: LayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [sizes, setSizes] = useState<Record<string, number>>({});
@@ -196,23 +208,23 @@ export function PaneContainer({
     setSizes({});
   }, [pane.id, pane.children?.length]);
 
-  const pcs = pane.children || [];
-  const totalPCs = pcs.length;
+  const layers = pane.children || [];
+  const totalLayers = layers.length;
 
-  const getPCSize = (index: number): number => {
-    if (totalPCs === 1) return 100;
-    const key = `pc-${index}`;
-    return sizes[key] ?? (100 / totalPCs);
+  const getLayerSize = (index: number): number => {
+    if (totalLayers === 1) return 100;
+    const key = `layer-${index}`;
+    return sizes[key] ?? (100 / totalLayers);
   };
 
   const handleHorizontalResize = useCallback((index: number, deltaX: number) => {
-    const pcLeft = getPCSize(index);
-    const pcRight = getPCSize(index + 1);
+    const layerLeft = getLayerSize(index);
+    const layerRight = getLayerSize(index + 1);
     const totalWidth = containerWidth;
     
     const deltaFraction = (deltaX / totalWidth) * 100;
-    let newLeft = pcLeft + deltaFraction;
-    let newRight = pcRight - deltaFraction;
+    let newLeft = layerLeft + deltaFraction;
+    let newRight = layerRight - deltaFraction;
     
     const minFraction = (MIN_SIZE / totalWidth) * 100;
     
@@ -226,21 +238,33 @@ export function PaneContainer({
     
     setSizes({
       ...sizes,
-      [`pc-${index}`]: newLeft,
-      [`pc-${index + 1}`]: newRight,
+      [`layer-${index}`]: newLeft,
+      [`layer-${index + 1}`]: newRight,
     });
   }, [sizes, setSizes, containerWidth]);
 
   if (!pane.children || pane.children.length === 0) {
     return (
-      <div className="h-full w-full">
-        <Pane
-          index={0}
-          isActive={activePaneIndex === 0}
-          totalPanes={1}
-          onClick={() => onPaneClick(0)}
-          workspacePath={workspacePath}
-        />
+      <div className="h-full w-full flex items-center justify-center bg-bg">
+        <div className="text-center p-8 max-w-sm">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-surface/30 mb-4">
+            <Layers className="w-8 h-8 text-[#666666]" />
+          </div>
+          <h3 className="text-lg text-[#aaaaaa] font-medium mb-2">No Layers Yet</h3>
+          <p className="text-sm text-[#666666] mb-4">
+            Create your first layer to start organizing your workspace panes.
+          </p>
+          <div className="flex flex-col gap-2 text-xs text-[#555555] font-mono">
+            <div className="flex items-center gap-2 justify-center">
+              <MousePointer className="w-3 h-3" />
+              <span>Click "Add Layer" in the top bar</span>
+            </div>
+            <div className="flex items-center gap-2 justify-center">
+              <Info className="w-3 h-3" />
+              <span>Layers help you group and split panes</span>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -249,31 +273,17 @@ export function PaneContainer({
 
   return (
     <div ref={containerRef} className="flex flex-col h-full w-full relative">
-      {onAddPC && (
-        <div className="h-8 flex items-center justify-between px-2 border-b border-border-inactive">
-          <div className="flex items-center gap-3 text-[10px] text-[#aaaaaa] font-mono">
-            <span>Agent: {workspaceAgent || 'none'}</span>
-            <span>Terms: {terminalCount || 1}</span>
-          </div>
-          <button
-            onClick={onAddPC}
-            className="text-[#aaaaaa] hover:text-white text-xs px-2 py-1 hover:bg-white/10 transition-colors font-mono"
-          >
-            + Add PC
-          </button>
-        </div>
-      )}
       <div className="flex-1 flex relative">
-        {pcs.map((pc, pcIdx) => {
-        const size = getPCSize(pcIdx);
-        const pcPaneCount = pc.children?.length || 0;
+        {layers.map((layer, layerIdx) => {
+        const size = getLayerSize(layerIdx);
+        const layerPaneCount = layer.children?.length || 0;
         const currentOffset = paneIndexOffset;
         
-        paneIndexOffset += pcPaneCount;
+        paneIndexOffset += layerPaneCount;
         
         return (
           <div
-            key={pc.id}
+            key={layer.id}
             className="relative border-r border-border-inactive"
             style={{
               width: `${size}%`,
@@ -281,7 +291,8 @@ export function PaneContainer({
             }}
           >
             <VerticalPaneGroup
-              pcPane={pc}
+              layerPane={layer}
+              layerNumber={layerIdx + 1}
               sizes={sizes}
               setSizes={setSizes}
               paneIndexOffset={currentOffset}
@@ -289,11 +300,11 @@ export function PaneContainer({
               onPaneClick={onPaneClick}
               onClosePane={onClosePane}
               onAddPane={onAddPane}
-              canClosePane={canClosePane}
+              onCloseLayer={onCloseLayer}
               workspacePath={workspacePath}
             />
             
-            {pcIdx < pcs.length - 1 && (
+            {layerIdx < layers.length - 1 && (
               <div
                 className="absolute top-0 bottom-0 w-[4px] bg-transparent hover:bg-white/50 cursor-col-resize z-10"
                 style={{ left: '100%', transform: 'translateX(-50%)' }}
@@ -305,7 +316,7 @@ export function PaneContainer({
                   
                   const handleMouseMove = (moveEvent: MouseEvent) => {
                     const deltaX = moveEvent.clientX - startX;
-                    handleHorizontalResize(pcIdx, deltaX);
+                    handleHorizontalResize(layerIdx, deltaX);
                   };
                   
                   const handleMouseUp = () => {

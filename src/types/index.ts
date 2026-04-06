@@ -37,11 +37,11 @@ export function generatePaneId(): string {
 
 export function createDefaultPanes(): Pane {
   const pane1 = { id: generatePaneId() };
-  const pc1: Pane = { id: generatePaneId(), split: 'vertical', children: [pane1] };
+  const layer1: Pane = { id: generatePaneId(), split: 'vertical', children: [pane1] };
   
   return {
     id: generatePaneId(),
     split: 'horizontal',
-    children: [pc1],
+    children: [layer1],
   };
 }

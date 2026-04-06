@@ -1,50 +1,38 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sidebar, TopBar, PaneContainer } from "../components";
+import { Sidebar, TopBar, StatusBar, Layer } from "../components";
 import { Workspace, Pane, WORKSPACE_COLORS, createDefaultPanes, generatePaneId } from "../types";
-
-interface SystemStats {
-  workspace_path: string;
-  ram_total: number;
-  ram_used: number;
-  ram_percentage: number;
-  cpu_usage: number;
-}
 
 function countAllPanes(pane: Pane): number {
   if (!pane.children) return 1;
   if (pane.split === "horizontal") {
-    return pane.children.reduce((acc, pc) => acc + countAllPanes(pc), 0);
+    return pane.children.reduce((acc, layer) => acc + countAllPanes(layer), 0);
   }
   return pane.children.length;
 }
 
-function flattenPanesInTree(pane: Pane): Pane[] {
-  if (!pane.children) return [pane];
-
-  if (pane.split === "horizontal") {
-    const result: Pane[] = [];
-    for (const pc of pane.children) {
-      if (pc.children) {
-        for (const p of pc.children) {
-          result.push(p);
-        }
-      }
-    }
-    return result;
-  }
-  return pane.children;
-}
-
-function findPCContainingPane(pane: Pane, targetId: string): string | null {
+function findActiveLayerAndPaneIndex(pane: Pane, targetIndex: number): { layerIndex: number; paneIndex: number } | null {
   if (!pane.children || pane.split !== "horizontal") return null;
 
-  for (const pc of pane.children) {
-    if (pc.children?.some((c) => c.id === targetId)) {
-      return pc.id;
+  let currentOffset = 0;
+  for (let i = 0; i < pane.children.length; i++) {
+    const layer = pane.children[i];
+    const layerPaneCount = layer.children?.length || 0;
+    
+    if (targetIndex < currentOffset + layerPaneCount) {
+      return {
+        layerIndex: i,
+        paneIndex: targetIndex - currentOffset,
+      };
     }
+    currentOffset += layerPaneCount;
   }
   return null;
+}
+
+interface SystemStats {
+  ram_percentage: number;
+  cpu_usage: number;
 }
 
 export function WorkspaceView() {
@@ -63,41 +51,38 @@ export function WorkspaceView() {
     "ws-03": createDefaultPanes(),
   });
   const [activePaneIndex, setActivePaneIndex] = useState(0);
-  const [sidebarWidth, setSidebarWidth] = useState(200);
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [systemStats, setSystemStats] = useState<SystemStats>({ ram_percentage: 0, cpu_usage: 0 });
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const currentPanes = workspacePanes[activeWorkspaceId] || createDefaultPanes();
-  const paneCount = countAllPanes(currentPanes);
-
-  const fetchSystemStats = useCallback(() => {
-    const baseRam = 4.2;
-    const baseCpu = 12.5;
-    const variation = Math.random() * 0.5 - 0.25;
-    
-    const termCount = activeWorkspace?.terminalCount || 1;
-    const ramPerTerm = 0.8;
-    const cpuPerTerm = 8;
-    
-    const simulatedRam = baseRam + (termCount * ramPerTerm) + variation;
-    const simulatedCpu = baseCpu + (termCount * cpuPerTerm) + variation;
-    const ramTotal = 16.0;
-    const ramPercent = (simulatedRam / ramTotal) * 100;
-
-    setSystemStats({
-      workspace_path: activeWorkspace?.path || 'No workspace',
-      ram_total: ramTotal * 1024 * 1024 * 1024,
-      ram_used: simulatedRam * 1024 * 1024 * 1024,
-      ram_percentage: ramPercent,
-      cpu_usage: simulatedCpu,
-    });
-  }, [activeWorkspace?.path, activeWorkspace?.terminalCount]);
+  const activeLayerInfo = findActiveLayerAndPaneIndex(currentPanes, activePaneIndex);
 
   useEffect(() => {
-    fetchSystemStats();
-    const interval = setInterval(fetchSystemStats, 2000);
+    const updateStats = () => {
+      const baseRam = 4.2;
+      const baseCpu = 12.5;
+      const variation = Math.random() * 0.5 - 0.25;
+      
+      const termCount = activeWorkspace?.terminalCount || 1;
+      const ramPerTerm = 0.8;
+      const cpuPerTerm = 8;
+      
+      const simulatedRam = baseRam + (termCount * ramPerTerm) + variation;
+      const simulatedCpu = baseCpu + (termCount * cpuPerTerm) + variation;
+      const ramTotal = 16.0;
+      const ramPercent = (simulatedRam / ramTotal) * 100;
+
+      setSystemStats({
+        ram_percentage: ramPercent,
+        cpu_usage: simulatedCpu,
+      });
+    };
+
+    updateStats();
+    const interval = setInterval(updateStats, 2000);
     return () => clearInterval(interval);
-  }, [fetchSystemStats]);
+  }, [activeWorkspace?.terminalCount]);
 
   const handleWorkspaceSelect = useCallback(
     (id: string) => {
@@ -122,24 +107,24 @@ export function WorkspaceView() {
     setActivePaneIndex(index);
   }, []);
 
-  const handleAddPC = useCallback(() => {
+  const handleAddLayer = useCallback(() => {
     const currentP = workspacePanes[activeWorkspaceId];
 
     const pane1 = { id: generatePaneId() };
-    const newPC: Pane = {
+    const newLayer: Pane = {
       id: generatePaneId(),
       split: "vertical",
       children: [pane1],
     };
 
-    const addPC = (p: Pane): Pane => {
+    const addLayer = (p: Pane): Pane => {
       return {
         ...p,
-        children: [...(p.children || []), newPC],
+        children: [...(p.children || []), newLayer],
       };
     };
 
-    const newPanes = addPC(currentP);
+    const newPanes = addLayer(currentP);
     setWorkspacePanes((prev) => ({
       ...prev,
       [activeWorkspaceId]: newPanes,
@@ -149,44 +134,44 @@ export function WorkspaceView() {
   const handleClosePaneById = useCallback(
     (paneId: string) => {
       const currentP = workspacePanes[activeWorkspaceId];
-      const flatPanes = flattenPanesInTree(currentP);
       
-      if (flatPanes.length <= 1) return;
-      const targetPane = flatPanes.find((p) => p.id === paneId);
-      if (!targetPane) return;
-
-      const activePCId = findPCContainingPane(currentP, paneId);
-      if (!activePCId) return;
-
-      const removePaneFromPC = (p: Pane): Pane => {
-        if (p.id === activePCId) {
-          const newChildren = (p.children || []).filter(
-            (c) => c.id !== paneId,
-          );
-          return { ...p, children: newChildren };
+      const findAndRemovePane = (p: Pane, targetId: string): Pane => {
+        if (!p.children) return p;
+        
+        for (const child of p.children) {
+          if (child.children && child.children.some(c => c.id === targetId)) {
+            const layerWithPaneRemoved = {
+              ...child,
+              children: child.children.filter(c => c.id !== targetId)
+            };
+            
+            if (layerWithPaneRemoved.children.length === 0) {
+              return {
+                ...p,
+                children: p.children.filter(c => c.id !== child.id)
+              };
+            }
+            
+            return {
+              ...p,
+              children: p.children.map(c => c.id === child.id ? layerWithPaneRemoved : c)
+            };
+          }
         }
-        if (p.children) {
-          return { ...p, children: p.children.map(removePaneFromPC) };
-        }
-        return p;
+        
+        return {
+          ...p,
+          children: p.children.map(c => findAndRemovePane(c, targetId))
+        };
       };
 
-      let newPanes = removePaneFromPC(currentP);
-
-      if (newPanes.children) {
-        const validPCs = newPanes.children.filter(
-          (pc) => pc.children && pc.children.length > 0,
-        );
-        if (validPCs.length === 0) {
-          newPanes = { id: generatePaneId() };
-        } else {
-          newPanes = { ...newPanes, children: validPCs };
-        }
-      }
+      let newPanes = findAndRemovePane(currentP, paneId);
 
       const newPaneCount = countAllPanes(newPanes);
-      if (activePaneIndex >= newPaneCount) {
-        setActivePaneIndex(Math.max(0, newPaneCount - 1));
+      if (activePaneIndex >= newPaneCount && newPaneCount > 0) {
+        setActivePaneIndex(newPaneCount - 1);
+      } else if (newPaneCount === 0) {
+        setActivePaneIndex(0);
       }
 
       setWorkspacePanes((prev) => ({
@@ -194,15 +179,15 @@ export function WorkspaceView() {
         [activeWorkspaceId]: newPanes,
       }));
     },
-    [workspacePanes, activeWorkspaceId, paneCount],
+    [workspacePanes, activeWorkspaceId, activePaneIndex],
   );
 
-  const handleAddPaneToPC = useCallback(
-    (pcId: string) => {
+  const handleAddPaneToLayer = useCallback(
+    (layerId: string) => {
       const currentP = workspacePanes[activeWorkspaceId];
 
-      const addPaneToPC = (p: Pane): Pane => {
-        if (p.id === pcId) {
+      const addPaneToLayer = (p: Pane): Pane => {
+        if (p.id === layerId) {
           const newPane = { id: generatePaneId() };
           return {
             ...p,
@@ -211,12 +196,12 @@ export function WorkspaceView() {
           };
         }
         if (p.children) {
-          return { ...p, children: p.children.map(addPaneToPC) };
+          return { ...p, children: p.children.map(addPaneToLayer) };
         }
         return p;
       };
 
-      const newPanes = addPaneToPC(currentP);
+      const newPanes = addPaneToLayer(currentP);
       setWorkspacePanes((prev) => ({
         ...prev,
         [activeWorkspaceId]: newPanes,
@@ -228,6 +213,49 @@ export function WorkspaceView() {
   const handleOpenSettings = useCallback(() => {
     navigate("/settings");
   }, [navigate]);
+
+  const handleRenameWorkspace = useCallback(() => {
+    console.log("Rename workspace:", activeWorkspaceId);
+  }, [activeWorkspaceId]);
+
+  const handleDeleteWorkspace = useCallback(() => {
+    console.log("Delete workspace:", activeWorkspaceId);
+  }, [activeWorkspaceId]);
+
+  const handleCloseLayer = useCallback(() => {
+    const currentP = workspacePanes[activeWorkspaceId];
+    if (!currentP.children || currentP.children.length <= 1) {
+      setWorkspacePanes((prev) => ({
+        ...prev,
+        [activeWorkspaceId]: { ...currentP, children: [] },
+      }));
+      setActivePaneIndex(0);
+      return;
+    }
+
+    const activeLayerId = currentP.children.find((layer) =>
+      layer.children?.some((_, idx) => {
+        let offset = 0;
+        for (let i = 0; i < currentP.children!.indexOf(layer); i++) {
+          offset += currentP.children![i].children?.length || 0;
+        }
+        return offset + idx === activePaneIndex;
+      })
+    )?.id;
+
+    if (!activeLayerId) return;
+
+    const newPanes = {
+      ...currentP,
+      children: currentP.children.filter((l) => l.id !== activeLayerId),
+    };
+
+    setWorkspacePanes((prev) => ({
+      ...prev,
+      [activeWorkspaceId]: newPanes,
+    }));
+    setActivePaneIndex(0);
+  }, [workspacePanes, activeWorkspaceId, activePaneIndex]);
 
   return (
     <div className="flex h-full w-full bg-bg font-mono overflow-hidden">
@@ -245,24 +273,31 @@ export function WorkspaceView() {
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
           activeWorkspace={activeWorkspace}
-          paneCount={paneCount}
-          systemStats={systemStats}
+          onAddLayer={handleAddLayer}
+          onRenameWorkspace={handleRenameWorkspace}
+          onDeleteWorkspace={handleDeleteWorkspace}
+          onOpenSettings={handleOpenSettings}
         />
 
         <div className="flex-1 bg-bg overflow-hidden">
-          <PaneContainer
+          <Layer
             pane={currentPanes}
             activePaneIndex={activePaneIndex}
             onPaneClick={handlePaneClick}
             onClosePane={handleClosePaneById}
-            onAddPane={handleAddPaneToPC}
-            onAddPC={handleAddPC}
-            canClosePane={paneCount > 1}
+            onAddPane={handleAddPaneToLayer}
+            onCloseLayer={handleCloseLayer}
             workspacePath={activeWorkspace?.path}
-            workspaceAgent={activeWorkspace?.agent}
-            terminalCount={activeWorkspace?.terminalCount}
           />
         </div>
+
+        <StatusBar
+          ramPercent={systemStats.ram_percentage}
+          cpuPercent={systemStats.cpu_usage}
+          activeLayer={activeLayerInfo?.layerIndex}
+          activePane={activeLayerInfo?.paneIndex}
+          workspacePath={activeWorkspace?.path}
+        />
       </div>
     </div>
   );

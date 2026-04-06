@@ -4,7 +4,6 @@ interface PaneProps {
   totalPanes: number;
   onClick: () => void;
   onClose?: () => void;
-  canClose?: boolean;
   workspacePath?: string;
 }
 
@@ -14,7 +13,6 @@ export function Pane({
   totalPanes, 
   onClick,
   onClose,
-  canClose = true,
   workspacePath,
 }: PaneProps) {
   const label = `PANE ${index + 1}`;
@@ -23,13 +21,25 @@ export function Pane({
   return (
     <div 
       onClick={onClick}
-      className="h-full w-full bg-surface"
+      className="h-full w-full bg-surface cursor-pointer"
     >
       <div 
         className="h-6 flex items-center justify-between px-2 bg-bg cursor-pointer"
         style={{ borderBottom: `1px solid ${borderColor}` }}
       >
         <div className="flex items-center gap-2">
+          {onClose && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="text-[#aaaaaa] hover:text-red-400 transition-colors text-xs"
+              title="Close pane"
+            >
+              ✕
+            </button>
+          )}
           <span className="text-[10px] text-[#aaaaaa] uppercase tracking-wider font-mono">
             {label}
           </span>
@@ -40,17 +50,6 @@ export function Pane({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {onClose && canClose && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-              className="text-[#aaaaaa] hover:text-white transition-colors text-xs"
-            >
-              ✕
-            </button>
-          )}
           <span className="text-[10px] text-[#aaaaaa] font-mono">
             {index + 1}/{totalPanes}
           </span>

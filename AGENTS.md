@@ -70,7 +70,7 @@ export function Pane({ index, isActive, onClick, canClose = true }: PaneProps) {
 
 ```tsx
 import { useState, useCallback } from 'react';
-import { Sidebar, TopBar, PaneContainer } from './components';
+import { Sidebar, TopBar, Layer } from './components';
 import { Workspace, Pane, generateWorkspaceName } from './types';
 ```
 
@@ -92,8 +92,8 @@ import { Workspace, Pane, generateWorkspaceName } from './types';
 // Good
 if (!targetPane) return;
 
-const activePCId = findPCContainingPane(currentP, paneId);
-if (!activePCId) return;
+const activeLayerId = findLayerContainingPane(currentP, paneId);
+if (!activeLayerId) return;
 ```
 
 ### TailwindCSS v4
