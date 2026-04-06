@@ -118,7 +118,7 @@ export function CreateWorkspace() {
             <h1 className="text-xl text-[#ffffff] tracking-wider mb-1">
               Create Workspace
             </h1>
-            <p className="text-sm text-[#555555]">
+            <p className="text-sm text-[#aaaaaa]">
               Add a new workspace to organize your panes
             </p>
           </div>
@@ -140,12 +140,12 @@ export function CreateWorkspace() {
                   placeholder="Enter workspace name"
                   className="
                     w-full px-3 py-2 
-                    bg-[#0d0d0d] 
-                    border border-[#1a1a1a] 
+                    bg-surface 
+                    border border-border-inactive 
                     text-[#ffffff] 
                     text-sm 
                     font-mono
-                    placeholder:text-[#555555]
+                    placeholder:text-[#aaaaaa]
                     focus:outline-none 
                     focus:border-[#ffffff]
                     transition-colors
@@ -171,12 +171,12 @@ export function CreateWorkspace() {
                     placeholder="Select a directory path"
                     className="
                       flex-1 px-3 py-2 
-                      bg-[#0d0d0d] 
-                      border border-[#1a1a1a] 
+                      bg-surface 
+                      border border-border-inactive 
                       text-[#ffffff] 
                       text-sm 
                       font-mono
-                      placeholder:text-[#555555]
+                      placeholder:text-[#aaaaaa]
                       focus:outline-none 
                       focus:border-[#ffffff]
                       transition-colors
@@ -186,7 +186,7 @@ export function CreateWorkspace() {
                   <button
                     type="button"
                     onClick={handleBrowse}
-                    className="px-3 py-2 border border-[#1a1a1a] bg-[#0d0d0d] text-[#555555] text-sm font-mono hover:text-[#ffffff] hover:border-[#555555] transition-colors duration-150 cursor-pointer"
+                    className="px-3 py-2 border border-border-inactive bg-surface text-[#aaaaaa] text-sm font-mono hover:text-[#ffffff] hover:border-[#888888] transition-colors duration-150 cursor-pointer"
                     title="Browse"
                   >
                     ...
@@ -208,8 +208,8 @@ export function CreateWorkspace() {
                         px-3 py-2 border rounded transition-all duration-150 text-sm
                         ${
                           layout === opt.id
-                            ? "border-[#ffffff] bg-[#0d0d0d] text-[#ffffff]"
-                            : "border-[#1a1a1a] bg-[#0d0d0d] text-[#aaaaaa] hover:border-[#555555] hover:text-[#ffffff]"
+                            ? "border-[#ffffff] bg-surface text-[#ffffff]"
+                            : "border-border-inactive bg-surface text-[#aaaaaa] hover:border-[#888888] hover:text-[#ffffff]"
                         }
                       `}
                     >
@@ -233,13 +233,13 @@ export function CreateWorkspace() {
                     className="
                       w-8 h-8
                       flex items-center justify-center
-                      border border-[#1a1a1a]
-                      bg-[#0d0d0d]
-                      text-[#555555]
+                      border border-border-inactive
+                      bg-surface
+                      text-[#aaaaaa]
                       text-sm
                       font-mono
                       hover:text-[#ffffff]
-                      hover:border-[#555555]
+                      hover:border-[#888888]
                       transition-colors
                       duration-150
                       cursor-pointer
@@ -257,8 +257,8 @@ export function CreateWorkspace() {
                     className="
                       w-16 px-2 py-2 
                       text-center
-                      bg-[#0d0d0d] 
-                      border border-[#1a1a1a] 
+                      bg-surface 
+                      border border-border-inactive 
                       text-[#ffffff] 
                       text-sm 
                       font-mono
@@ -274,13 +274,13 @@ export function CreateWorkspace() {
                     className="
                       w-8 h-8
                       flex items-center justify-center
-                      border border-[#1a1a1a]
-                      bg-[#0d0d0d]
-                      text-[#555555]
+                      border border-border-inactive
+                      bg-surface
+                      text-[#aaaaaa]
                       text-sm
                       font-mono
                       hover:text-[#ffffff]
-                      hover:border-[#555555]
+                      hover:border-[#888888]
                       transition-colors
                       duration-150
                       cursor-pointer
@@ -306,7 +306,7 @@ export function CreateWorkspace() {
                         ${
                           color === c
                             ? "border-[#ffffff] scale-110"
-                            : "border-transparent hover:border-[#555555]"
+                            : "border-transparent hover:border-[#888888]"
                         }
                       `}
                       style={{ backgroundColor: c }}
@@ -328,10 +328,10 @@ export function CreateWorkspace() {
                     onFocus={() => setIsAgentDropdownOpen(true)}
                     onBlur={() => setTimeout(() => setIsAgentDropdownOpen(false), 200)}
                     placeholder="Search agents..."
-                    className="w-full px-3 py-2 bg-[#0d0d0d] border border-[#1a1a1a] text-[#ffffff] text-sm font-mono placeholder:text-[#555555] focus:outline-none focus:border-[#ffffff] transition-colors duration-150"
+                    className="w-full px-3 py-2 bg-surface border border-border-inactive text-[#ffffff] text-sm font-mono placeholder:text-[#aaaaaa] focus:outline-none focus:border-[#ffffff] transition-colors duration-150"
                   />
                   {isAgentDropdownOpen && (
-                    <div className="absolute z-10 w-full mt-1 bg-[#0d0d0d] border border-[#1a1a1a] max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-surface border border-border-inactive max-h-48 overflow-y-auto">
                       {filteredAgents.map((opt) => (
                         <button
                           key={opt.id}
@@ -341,14 +341,14 @@ export function CreateWorkspace() {
                             setAgentSearch(opt.name);
                             setIsAgentDropdownOpen(false);
                           }}
-                          className="w-full px-3 py-2 text-left hover:bg-[#1a1a1a] transition-colors duration-150"
+                          className="w-full px-3 py-2 text-left hover:bg-[#333333] transition-colors duration-150"
                         >
                           <div className="text-sm text-[#ffffff]">{opt.name}</div>
-                          <div className="text-xs text-[#555555]">{opt.description}</div>
+                          <div className="text-xs text-[#888888]">{opt.description}</div>
                         </button>
                       ))}
                       {filteredAgents.length === 0 && (
-                        <div className="px-3 py-2 text-xs text-[#555555]">
+                        <div className="px-3 py-2 text-xs text-[#aaaaaa]">
                           No agents found
                         </div>
                       )}
@@ -389,13 +389,13 @@ export function CreateWorkspace() {
                   onClick={handleCancel}
                   className="
                     px-4 py-2
-                    border border-[#1a1a1a]
+                    border border-border-inactive
                     bg-transparent 
-                    text-[#555555] 
+                    text-[#aaaaaa] 
                     text-sm 
                     font-mono 
                     hover:text-[#ffffff]
-                    hover:border-[#555555]
+                    hover:border-[#888888]
                     transition-colors 
                     duration-150
                     cursor-pointer

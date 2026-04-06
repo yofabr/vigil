@@ -18,7 +18,7 @@ export function Pane({
   workspacePath,
 }: PaneProps) {
   const label = `PANE ${index + 1}`;
-  const borderColor = isActive ? '#ffffff' : '#1a1a1a';
+  const borderColor = isActive ? '#ffffff' : '#333333';
   
   return (
     <div 
@@ -30,11 +30,11 @@ export function Pane({
         style={{ borderBottom: `1px solid ${borderColor}` }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-[#555555] uppercase tracking-wider font-mono">
+          <span className="text-[10px] text-[#aaaaaa] uppercase tracking-wider font-mono">
             {label}
           </span>
           {workspacePath && (
-            <span className="text-[10px] text-[#555555] font-mono truncate max-w-[200px]">
+            <span className="text-[10px] text-[#aaaaaa] font-mono truncate max-w-[200px]">
               {workspacePath}
             </span>
           )}
@@ -46,19 +46,19 @@ export function Pane({
                 e.stopPropagation();
                 onClose();
               }}
-              className="text-[#555555] hover:text-white transition-colors text-xs"
+              className="text-[#aaaaaa] hover:text-white transition-colors text-xs"
             >
               ✕
             </button>
           )}
-          <span className="text-[10px] text-[#555555] font-mono">
+          <span className="text-[10px] text-[#aaaaaa] font-mono">
             {index + 1}/{totalPanes}
           </span>
         </div>
       </div>
       
-      <div className="h-[calc(100%-24px)] bg-[#0d0d0d] overflow-hidden p-2">
-        <pre className="text-[10px] text-[#555555] font-mono">
+      <div className="h-[calc(100%-24px)] bg-surface overflow-hidden p-2">
+        <pre className="text-[10px] text-[#aaaaaa] font-mono">
 {`$ ./vigil --workspace ws-${String(index + 1).padStart(2, '0')}
 > Initializing terminal...
 > Workspace loaded successfully

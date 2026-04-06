@@ -97,13 +97,13 @@ export function Sidebar({
           flex flex-col gap-1 px-3 py-2 cursor-pointer select-none
           transition-colors duration-150
           ${isActive 
-            ? 'bg-[#0d0d0d] text-[#ffffff]' 
-            : 'text-[#555555] hover:bg-[#0d0d0d] hover:text-[#ffffff]'
+            ? 'bg-surface text-[#ffffff]' 
+            : 'text-[#aaaaaa] hover:bg-[#333333] hover:text-[#ffffff]'
           }
         `}
       >
         <div className="flex items-center gap-2">
-          {ws.isPinned && <span className="text-[10px] text-[#555555]">★</span>}
+          {ws.isPinned && <span className="text-[10px] text-[#aaaaaa]">★</span>}
           <span className="text-[10px] opacity-50">⇿</span>
           <span 
             className="w-2 h-2 flex-shrink-0" 
@@ -112,7 +112,7 @@ export function Sidebar({
           <span className="text-xs truncate flex-1">{ws.name}</span>
         </div>
         
-        <div className="flex flex-col gap-0.5 ml-4 text-[9px] text-[#555555]">
+        <div className="flex flex-col gap-0.5 ml-4 text-[10px] text-[#888888]">
           {ws.path && (
             <span className="truncate opacity-70">{ws.path}</span>
           )}
@@ -133,7 +133,7 @@ export function Sidebar({
 
   return (
     <aside 
-      className="h-full bg-bg border-r border-[#1a1a1a] flex flex-col font-mono relative"
+      className="h-full bg-bg border-r border-border-inactive flex flex-col font-mono relative"
       style={{ width: width + 'px' }}
     >
       {/* Resize Handle */}
@@ -147,7 +147,7 @@ export function Sidebar({
       <div className="flex-1 overflow-y-auto py-2">
         {pinnedWorkspaces.length > 0 && (
           <div className="px-3 py-1">
-            <span className="text-[9px] text-[#555555] uppercase tracking-wider">
+            <span className="text-[9px] text-[#888888] uppercase tracking-wider">
               Pinned
             </span>
           </div>
@@ -158,7 +158,7 @@ export function Sidebar({
           <>
             {pinnedWorkspaces.length > 0 && (
               <div className="px-3 py-1 mt-2">
-                <span className="text-[9px] text-[#555555] uppercase tracking-wider">
+                <span className="text-[9px] text-[#888888] uppercase tracking-wider">
                   Workspaces
                 </span>
               </div>
@@ -168,25 +168,25 @@ export function Sidebar({
         )}
         
         {workspaces.length === 0 && (
-          <div className="px-3 py-4 text-center text-[10px] text-[#555555]">
+          <div className="px-3 py-4 text-center text-[10px] text-[#aaaaaa]">
             No workspaces yet
           </div>
         )}
       </div>
 
       {/* New Workspace Button */}
-      <div className="p-2 border-t border-[#1a1a1a]">
+      <div className="p-2 border-t border-border-inactive">
         <button
           onClick={onNewWorkspace}
           className="
             w-full px-3 py-2 
-            border border-[#1a1a1a] 
+            border border-border-inactive 
             bg-transparent 
-            text-[#555555] 
+            text-[#aaaaaa] 
             text-xs 
             font-mono 
             hover:bg-[#ffffff] 
-            hover:text-[#0a0a0a] 
+            hover:text-bg 
             transition-colors 
             duration-150
             cursor-pointer
@@ -199,13 +199,13 @@ export function Sidebar({
             onClick={onOpenSettings}
             className="
               w-full px-3 py-2 mt-2
-              border border-[#1a1a1a] 
+              border border-border-inactive 
               bg-transparent 
-              text-[#555555] 
+              text-[#aaaaaa] 
               text-xs 
               font-mono 
               hover:bg-[#ffffff] 
-              hover:text-[#0a0a0a] 
+              hover:text-bg 
               transition-colors 
               duration-150
               cursor-pointer

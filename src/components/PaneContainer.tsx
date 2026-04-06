@@ -93,11 +93,11 @@ function VerticalPaneGroup({
 
   return (
     <div ref={containerRef} className="flex flex-col h-full w-full relative">
-      <div className="h-6 flex items-center justify-end px-2 bg-bg border-b border-[#1a1a1a]">
+      <div className="h-6 flex items-center justify-end px-2 bg-bg border-b border-border-inactive">
         {onAddPane && (
           <button
             onClick={() => onAddPane(pcPane.id)}
-            className="text-[#555555] hover:text-white text-xs px-1"
+            className="text-[#aaaaaa] hover:text-white text-xs px-1"
           >
             +
           </button>
@@ -111,7 +111,7 @@ function VerticalPaneGroup({
         return (
           <div
             key={pane.id}
-            className="relative border-b border-[#1a1a1a]"
+            className="relative border-b border-border-inactive"
             style={{
               height: `${size}%`,
               minHeight: MIN_SIZE,
@@ -250,14 +250,14 @@ export function PaneContainer({
   return (
     <div ref={containerRef} className="flex flex-col h-full w-full relative">
       {onAddPC && (
-        <div className="h-8 flex items-center justify-between px-2 border-b border-[#1a1a1a]">
-          <div className="flex items-center gap-3 text-[10px] text-[#555555] font-mono">
+        <div className="h-8 flex items-center justify-between px-2 border-b border-border-inactive">
+          <div className="flex items-center gap-3 text-[10px] text-[#aaaaaa] font-mono">
             <span>Agent: {workspaceAgent || 'none'}</span>
             <span>Terms: {terminalCount || 1}</span>
           </div>
           <button
             onClick={onAddPC}
-            className="text-[#555555] hover:text-white text-xs px-2 py-1 hover:bg-white/10 transition-colors font-mono"
+            className="text-[#aaaaaa] hover:text-white text-xs px-2 py-1 hover:bg-white/10 transition-colors font-mono"
           >
             + Add PC
           </button>
@@ -274,7 +274,7 @@ export function PaneContainer({
         return (
           <div
             key={pc.id}
-            className="relative border-r border-[#1a1a1a]"
+            className="relative border-r border-border-inactive"
             style={{
               width: `${size}%`,
               minWidth: MIN_SIZE,

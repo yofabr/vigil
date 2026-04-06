@@ -11,15 +11,15 @@
 @theme {
   --font-mono: 'JetBrains Mono', monospace;
   
-  --color-bg: #0a0a0a;
-  --color-surface: #0d0d0d;
-  --color-border-inactive: #1a1a1a;
+  --color-bg: #1a1a1a;
+  --color-surface: #222222;
+  --color-border-inactive: #333333;
   --color-border-active: #ffffff;
   --color-text-active: #ffffff;
-  --color-text-inactive: #555555;
-  --color-pane-border: #1a1a1a;
-  --color-divider: #0f0f0f;
-  --color-border-light: #2a2a2a;
+  --color-text-inactive: #999999;
+  --color-pane-border: #333333;
+  --color-divider: #2a2a2a;
+  --color-border-light: #444444;
 }
 
 * {
@@ -40,13 +40,13 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #1a1a1a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: #444444;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555555;
+  background: #666666;
 }
