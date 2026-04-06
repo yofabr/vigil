@@ -1,7 +1,7 @@
-import { Routes, Route } from "react-router-dom";
-import { WorkspaceView, Settings, CreateWorkspace } from "./routes";
-import { useRouteSync } from "./utils/routeSync";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { TitleBar } from "./components/TitleBar";
+import { AppLayout, WorkspaceView, SelectWorkspace, Settings, CreateWorkspace } from "./routes";
+import { useRouteSync } from "./utils/routeSync";
 
 export function App() {
   useRouteSync();
@@ -9,13 +9,15 @@ export function App() {
   return (
     <div className="h-full flex flex-col bg-bg">
       <TitleBar />
-      <div className="flex-1 overflow-hidden">
-        <Routes>
-          <Route path="/" element={<WorkspaceView />} />
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<SelectWorkspace />} />
+          <Route path="/:workspaceId" element={<WorkspaceView />} />
           <Route path="/workspace/create" element={<CreateWorkspace />} />
           <Route path="/settings" element={<Settings />} />
-        </Routes>
-      </div>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, Plus, Settings, Trash2, Edit3 } from 'lucide-react';
+import { MoreHorizontal, Plus, Settings, Trash2, Edit3, X } from 'lucide-react';
 import { Workspace } from '../types';
 
 interface TopBarProps {
@@ -8,6 +8,7 @@ interface TopBarProps {
   onRenameWorkspace?: () => void;
   onDeleteWorkspace?: () => void;
   onOpenSettings?: () => void;
+  onCloseWorkspace?: () => void;
 }
 
 export function TopBar({
@@ -16,6 +17,7 @@ export function TopBar({
   onRenameWorkspace,
   onDeleteWorkspace,
   onOpenSettings,
+  onCloseWorkspace,
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -31,8 +33,9 @@ export function TopBar({
   }, []);
 
   const menuItems = [
-    ...(onRenameWorkspace ? [{ icon: Edit3, label: 'Rename Workspace', action: onRenameWorkspace }] : []),
-    ...(onDeleteWorkspace ? [{ icon: Trash2, label: 'Delete Workspace', action: onDeleteWorkspace, danger: true }] : []),
+    ...(onCloseWorkspace && activeWorkspace ? [{ icon: X, label: 'Close Workspace', action: onCloseWorkspace }] : []),
+    ...(onRenameWorkspace && activeWorkspace ? [{ icon: Edit3, label: 'Rename Workspace', action: onRenameWorkspace }] : []),
+    ...(onDeleteWorkspace && activeWorkspace ? [{ icon: Trash2, label: 'Delete Workspace', action: onDeleteWorkspace, danger: true }] : []),
     ...(onOpenSettings ? [{ icon: Settings, label: 'Settings', action: onOpenSettings }] : []),
   ];
 
