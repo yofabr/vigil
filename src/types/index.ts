@@ -7,6 +7,9 @@ export interface Pane {
   size?: number;
 }
 
+export type PaneMode = 'AGENT' | 'TERMINAL';
+export type SplitType = 'HORIZONTAL' | 'VERTICAL';
+
 export interface Workspace {
   id: string;
   name: string;
@@ -17,7 +20,69 @@ export interface Workspace {
   openCount?: number;
   lastOpenedAt?: string;
   agent?: string;
-  terminalCount?: number;
+}
+
+export interface Group {
+  id: string;
+  workspace_id: string;
+  order_index: number;
+  size: number;
+  split_type: SplitType;
+}
+
+export interface DbPane {
+  id: string;
+  group_id: string;
+  order_index: number;
+  size: number;
+  mode: PaneMode;
+  agent_command?: string;
+  terminal_pid?: number;
+}
+
+export interface WorkspaceCreateInput {
+  name: string;
+  color: string;
+  path?: string;
+  agent?: string;
+}
+
+export interface WorkspaceUpdateInput {
+  name?: string;
+  color?: string;
+  path?: string;
+  description?: string;
+  isPinned?: number;
+  agent?: string;
+}
+
+export interface GroupCreateInput {
+  workspace_id: string;
+  order_index: number;
+  size?: number;
+  split_type: SplitType;
+}
+
+export interface GroupUpdateInput {
+  order_index?: number;
+  size?: number;
+  split_type?: SplitType;
+}
+
+export interface PaneCreateInput {
+  group_id: string;
+  order_index: number;
+  size?: number;
+  mode: PaneMode;
+  agent_command?: string;
+}
+
+export interface PaneUpdateInput {
+  order_index?: number;
+  size?: number;
+  mode?: PaneMode;
+  agent_command?: string;
+  terminal_pid?: number;
 }
 
 export const WORKSPACE_COLORS = [

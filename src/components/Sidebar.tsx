@@ -162,8 +162,6 @@ export function Sidebar({
           <div className="flex gap-2 opacity-50">
             <span>Agent: {ws.agent || 'none'}</span>
             <span>·</span>
-            <span>Terms: {ws.terminalCount || 1}</span>
-            <span>·</span>
             <span>{ws.openCount || 0} opens</span>
           </div>
         </div>

@@ -1,11 +1,21 @@
 import { useState, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 import { WORKSPACE_COLORS } from "../types";
 
-interface LayoutOption {
+interface CreateWorkspaceResponse {
   id: string;
   name: string;
+  color: string;
+  path: string | null;
+  agent: string | null;
+  is_pinned: number;
+  description: string | null;
+  open_count: number;
+  created_at: string;
+  updated_at: string;
+  last_opened_at: string | null;
 }
 
 interface AgentOption {
@@ -13,18 +23,6 @@ interface AgentOption {
   name: string;
   description: string;
 }
-
-const LAYOUT_OPTIONS: LayoutOption[] = [
-  { id: "1x1", name: "1 × 1" },
-  { id: "2x1", name: "2 × 1" },
-  { id: "3x1", name: "3 × 1" },
-  { id: "4x1", name: "4 × 1" },
-  { id: "1x2", name: "1 × 2" },
-  { id: "1x3", name: "1 × 3" },
-  { id: "1x4", name: "1 × 4" },
-  { id: "2x2", name: "2 × 2" },
-  { id: "3x3", name: "3 × 3" },
-];
 
 const AGENT_OPTIONS: AgentOption[] = [
   { id: "claude", name: "Claude", description: "claude - config: ~/.claude.json" },
@@ -34,12 +32,11 @@ const AGENT_OPTIONS: AgentOption[] = [
 
 export function CreateWorkspace() {
   const navigate = useNavigate();
+  const { loadWorkspaces } = useOutletContext<{ loadWorkspaces: () => Promise<void> }>();
 
   const [name, setName] = useState("");
   const [color, setColor] = useState<string>(WORKSPACE_COLORS[0]);
   const [directory, setDirectory] = useState("");
-  const [layout, setLayout] = useState<string>("1x1");
-  const [terminalCount, setTerminalCount] = useState(1);
   const [agent, setAgent] = useState<string>("claude");
   const [agentSearch, setAgentSearch] = useState<string>("claude");
   const [isAgentDropdownOpen, setIsAgentDropdownOpen] = useState(false);
@@ -70,26 +67,32 @@ export function CreateWorkspace() {
       setIsCreating(true);
 
       try {
+        console.log("window.__TAURI__:", window.__TAURI__);
+        console.log("Checking invoke availability");
         if (window.__TAURI__) {
-          await window.__TAURI__.invoke("create_workspace", {
-            name: name.trim(),
-            color,
-            directory: directory.trim() || null,
-            layout: layout,
-            terminalCount,
-            agent,
+          console.log("Tauri available, calling invoke");
+          const workspace = await invoke<CreateWorkspaceResponse>("create_workspace", {
+            input: {
+              name: name.trim(),
+              color,
+              path: directory.trim() || null,
+              agent: agent || null,
+            },
           });
+          console.log("invoke completed", workspace);
+          await loadWorkspaces();
+          navigate(`/${workspace.id}`);
         } else {
           console.warn("Tauri not available, workspace not saved to backend");
+          navigate("/");
         }
-        navigate("/");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create workspace");
       } finally {
         setIsCreating(false);
       }
     },
-    [name, color, directory, layout, terminalCount, agent, navigate],
+    [name, color, directory, agent, navigate],
   );
 
   const handleCancel = useCallback(() => {
@@ -189,103 +192,6 @@ export function CreateWorkspace() {
                   title="Browse"
                 >
                   ...
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-[#aaaaaa] mb-1 uppercase tracking-wider">
-                Pane Layout
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {LAYOUT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setLayout(opt.id)}
-                    className={`
-                      px-3 py-2 border rounded transition-all duration-150 text-sm
-                      ${
-                        layout === opt.id
-                          ? "border-[#ffffff] bg-surface text-[#ffffff]"
-                          : "border-border-inactive bg-surface text-[#aaaaaa] hover:border-[#888888] hover:text-[#ffffff]"
-                      }
-                    `}
-                  >
-                    {opt.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="terminals"
-                className="block text-xs text-[#aaaaaa] mb-1 uppercase tracking-wider"
-              >
-                Integrated Terminals
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTerminalCount(Math.max(0, terminalCount - 1))}
-                  className="
-                    w-8 h-8
-                    flex items-center justify-center
-                    border border-border-inactive
-                    bg-surface
-                    text-[#aaaaaa]
-                    text-sm
-                    font-mono
-                    hover:text-[#ffffff]
-                    hover:border-[#888888]
-                    transition-colors
-                    duration-150
-                    cursor-pointer
-                  "
-                >
-                  -
-                </button>
-                <input
-                  id="terminals"
-                  type="number"
-                  min="0"
-                  max="16"
-                  value={terminalCount}
-                  onChange={(e) => setTerminalCount(Math.min(16, Math.max(0, parseInt(e.target.value) || 0)))}
-                  className="
-                    w-16 px-2 py-2 
-                    text-center
-                    bg-surface 
-                    border border-border-inactive 
-                    text-[#ffffff] 
-                    text-sm 
-                    font-mono
-                    focus:outline-none 
-                    focus:border-[#ffffff]
-                    transition-colors
-                    duration-150
-                  "
-                />
-                <button
-                  type="button"
-                  onClick={() => setTerminalCount(Math.min(16, terminalCount + 1))}
-                  className="
-                    w-8 h-8
-                    flex items-center justify-center
-                    border border-border-inactive
-                    bg-surface
-                    text-[#aaaaaa]
-                    text-sm
-                    font-mono
-                    hover:text-[#ffffff]
-                    hover:border-[#888888]
-                    transition-colors
-                    duration-150
-                    cursor-pointer
-                  "
-                >
-                  +
                 </button>
               </div>
             </div>

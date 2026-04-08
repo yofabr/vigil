@@ -4,15 +4,11 @@ interface StatusBarProps {
   activeGroup?: number;
   activePane?: number;
   workspacePath?: string;
+  totalPanes: number;
 }
 
-export function StatusBar({
-  ramPercent,
-  cpuPercent,
-  activeGroup,
-  activePane,
-  workspacePath,
-}: StatusBarProps) {
+export function StatusBar(props: StatusBarProps) {
+  const { ramPercent, cpuPercent, activeGroup, activePane, workspacePath } = props;
   return (
     <footer className="h-6 bg-bg border-t border-border-inactive flex items-center justify-between px-3 font-mono text-[10px] text-text-inactive">
       <div className="flex items-center gap-4">

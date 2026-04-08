@@ -2,6 +2,8 @@ interface PaneProps {
   index: number;
   isActive: boolean;
   totalPanes: number;
+  mode?: 'AGENT' | 'TERMINAL';
+  agentCommand?: string;
   onClick: () => void;
   onClose?: () => void;
   workspacePath?: string;
@@ -11,11 +13,13 @@ export function Pane({
   index, 
   isActive, 
   totalPanes, 
+  mode = 'TERMINAL',
+  agentCommand,
   onClick,
   onClose,
   workspacePath,
 }: PaneProps) {
-  const label = `PANE ${index + 1}`;
+  const label = mode === 'AGENT' ? `AGENT ${agentCommand || '?'}` : `TERM ${index + 1}`;
   const borderColor = isActive ? '#ffffff' : '#333333';
   
   return (

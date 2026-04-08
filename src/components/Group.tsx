@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRef } from 'react';
 import { X, Layers, MousePointer, Info } from 'lucide-react';
-import { Pane as PaneType } from '../types';
+import { Group as GroupType, DbPane } from '../types';
 import { Pane } from './Pane';
 
 interface GroupProps {
-  pane: PaneType;
+  groups: GroupType[];
+  panesByGroup: Record<string, DbPane[]>;
   activePaneIndex: number;
   onPaneClick: (index: number) => void;
   onClosePane?: (paneId: string) => void;
@@ -16,10 +17,9 @@ interface GroupProps {
 const MIN_SIZE = 150;
 
 function VerticalPaneGroup({
-  groupPane,
+  group,
+  panes,
   groupNumber,
-  sizes,
-  setSizes,
   paneIndexOffset,
   activePaneIndex,
   onPaneClick,
@@ -28,10 +28,9 @@ function VerticalPaneGroup({
   onCloseGroup,
   workspacePath,
 }: {
-  groupPane: PaneType;
+  group: GroupType;
+  panes: DbPane[];
   groupNumber: number;
-  sizes: Record<string, number>;
-  setSizes: (s: Record<string, number>) => void;
   paneIndexOffset: number;
   activePaneIndex: number;
   onPaneClick: (index: number) => void;
@@ -41,55 +40,15 @@ function VerticalPaneGroup({
   workspacePath?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(0);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerHeight(entry.contentRect.height);
-      }
-    });
-    
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const panes = groupPane.children || [];
   const totalPanes = panes.length;
   
   const getPaneSize = (index: number): number => {
     if (totalPanes === 1) return 100;
-    const key = `${groupPane.id}-${index}`;
-    return sizes[key] ?? (100 / totalPanes);
+    const pane = panes[index];
+    if (pane && pane.size) return pane.size;
+    return 100 / totalPanes;
   };
-
-  const handleVerticalResize = useCallback((index: number, deltaY: number) => {
-    const paneAbove = getPaneSize(index);
-    const paneBelow = getPaneSize(index + 1);
-    const totalHeight = containerHeight;
-    
-    const deltaFraction = (deltaY / totalHeight) * 100;
-    let newAbove = paneAbove + deltaFraction;
-    let newBelow = paneBelow - deltaFraction;
-    
-    const minFraction = (MIN_SIZE / totalHeight) * 100;
-    
-    if (newAbove < minFraction) {
-      newAbove = minFraction;
-      newBelow = 100 - minFraction;
-    } else if (newBelow < minFraction) {
-      newBelow = minFraction;
-      newAbove = 100 - minFraction;
-    }
-    
-    setSizes({
-      ...sizes,
-      [`${groupPane.id}-${index}`]: newAbove,
-      [`${groupPane.id}-${index + 1}`]: newBelow,
-    });
-  }, [sizes, setSizes, containerHeight, groupPane.id]);
 
   return (
     <div ref={containerRef} className="flex flex-col h-full w-full relative">
@@ -101,7 +60,7 @@ function VerticalPaneGroup({
         <div className="flex items-center gap-1">
           {onCloseGroup && (
             <button
-              onClick={() => onCloseGroup(groupPane.id)}
+              onClick={() => onCloseGroup(group.id)}
               className="text-[#aaaaaa] hover:text-red-400 text-xs px-1"
               title="Close group"
             >
@@ -110,7 +69,7 @@ function VerticalPaneGroup({
           )}
           {onAddPane && (
             <button
-              onClick={() => onAddPane(groupPane.id)}
+              onClick={() => onAddPane(group.id)}
               className="text-[#aaaaaa] hover:text-white text-xs px-1"
               title="Add pane"
             >
@@ -137,6 +96,8 @@ function VerticalPaneGroup({
               index={paneIndexOffset + idx}
               isActive={isActive}
               totalPanes={totalPanes}
+              mode={pane.mode}
+              agentCommand={pane.agent_command}
               onClick={() => onPaneClick(paneIndexOffset + idx)}
               onClose={onClosePane ? () => onClosePane(pane.id) : undefined}
               workspacePath={workspacePath}
@@ -146,28 +107,6 @@ function VerticalPaneGroup({
               <div
                 className="absolute left-0 right-0 h-[4px] bg-transparent hover:bg-white/50 cursor-row-resize z-10"
                 style={{ top: '100%', transform: 'translateY(-50%)' }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  const startY = e.clientY;
-                  const handleMouseMove = (moveEvent: MouseEvent) => {
-                    const deltaY = moveEvent.clientY - startY;
-                    handleVerticalResize(idx, deltaY);
-                  };
-                  
-                  const handleMouseUp = () => {
-                    document.removeEventListener('mousemove', handleMouseMove);
-                    document.removeEventListener('mouseup', handleMouseUp);
-                    document.body.style.cursor = 'default';
-                    document.body.style.userSelect = 'auto';
-                  };
-                  
-                  document.body.style.cursor = 'row-resize';
-                  document.body.style.userSelect = 'none';
-                  document.addEventListener('mousemove', handleMouseMove);
-                  document.addEventListener('mouseup', handleMouseUp);
-                }}
               />
             )}
           </div>
@@ -179,7 +118,8 @@ function VerticalPaneGroup({
 }
 
 export function Group({
-  pane,
+  groups,
+  panesByGroup,
   activePaneIndex,
   onPaneClick,
   onClosePane,
@@ -188,62 +128,17 @@ export function Group({
   workspacePath,
 }: GroupProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [sizes, setSizes] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    setSizes({});
-  }, [pane.id, pane.children?.length]);
-
-  const groups = pane.children || [];
   const totalGroups = groups.length;
 
   const getGroupSize = (index: number): number => {
     if (totalGroups === 1) return 100;
-    const key = `group-${index}`;
-    return sizes[key] ?? (100 / totalGroups);
+    const group = groups[index];
+    if (group && group.size) return group.size;
+    return 100 / totalGroups;
   };
 
-  const handleHorizontalResize = useCallback((index: number, deltaX: number) => {
-    const groupLeft = getGroupSize(index);
-    const groupRight = getGroupSize(index + 1);
-    const totalWidth = containerWidth;
-    
-    const deltaFraction = (deltaX / totalWidth) * 100;
-    let newLeft = groupLeft + deltaFraction;
-    let newRight = groupRight - deltaFraction;
-    
-    const minFraction = (MIN_SIZE / totalWidth) * 100;
-    
-    if (newLeft < minFraction) {
-      newLeft = minFraction;
-      newRight = 100 - minFraction;
-    } else if (newRight < minFraction) {
-      newRight = minFraction;
-      newLeft = 100 - minFraction;
-    }
-    
-    setSizes({
-      ...sizes,
-      [`group-${index}`]: newLeft,
-      [`group-${index + 1}`]: newRight,
-    });
-  }, [sizes, setSizes, containerWidth]);
-
-  if (!pane.children || pane.children.length === 0) {
+  if (!groups || groups.length === 0) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-bg">
         <div className="text-center p-8 max-w-sm">
@@ -276,7 +171,8 @@ export function Group({
       <div className="flex-1 flex relative">
         {groups.map((group, groupIdx) => {
         const size = getGroupSize(groupIdx);
-        const groupPaneCount = group.children?.length || 0;
+        const panes = panesByGroup[group.id] || [];
+        const groupPaneCount = panes.length;
         const currentOffset = paneIndexOffset;
         
         paneIndexOffset += groupPaneCount;
@@ -291,10 +187,9 @@ export function Group({
             }}
           >
             <VerticalPaneGroup
-              groupPane={group}
+              group={group}
+              panes={panes}
               groupNumber={groupIdx + 1}
-              sizes={sizes}
-              setSizes={setSizes}
               paneIndexOffset={currentOffset}
               activePaneIndex={activePaneIndex}
               onPaneClick={onPaneClick}
@@ -308,29 +203,6 @@ export function Group({
               <div
                 className="absolute top-0 bottom-0 w-[4px] bg-transparent hover:bg-white/50 cursor-col-resize z-10"
                 style={{ left: '100%', transform: 'translateX(-50%)' }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  const startX = e.clientX;
-                  
-                  const handleMouseMove = (moveEvent: MouseEvent) => {
-                    const deltaX = moveEvent.clientX - startX;
-                    handleHorizontalResize(groupIdx, deltaX);
-                  };
-                  
-                  const handleMouseUp = () => {
-                    document.removeEventListener('mousemove', handleMouseMove);
-                    document.removeEventListener('mouseup', handleMouseUp);
-                    document.body.style.cursor = 'default';
-                    document.body.style.userSelect = 'auto';
-                  };
-                  
-                  document.body.style.cursor = 'col-resize';
-                  document.body.style.userSelect = 'none';
-                  document.addEventListener('mousemove', handleMouseMove);
-                  document.addEventListener('mouseup', handleMouseUp);
-                }}
               />
             )}
           </div>

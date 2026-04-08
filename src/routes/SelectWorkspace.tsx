@@ -1,13 +1,15 @@
 import { useOutletContext } from "react-router-dom";
 import { TopBar, StatusBar, Group } from "../components";
-import { Workspace, Pane } from "../types";
+import { Workspace, Group as GroupType, DbPane } from "../types";
 
 interface OutletContext {
   activeWorkspace: Workspace | undefined;
-  currentPanes: Pane;
+  groups: GroupType[];
+  panesByGroup: Record<string, DbPane[]>;
   activePaneIndex: number;
   activeGroupInfo: { groupIndex: number; paneIndex: number } | null | undefined;
   systemStats: { ram_percentage: number; cpu_usage: number };
+  totalPanes: number;
   onAddGroup: (() => void) | undefined;
   onRenameWorkspace: (() => void) | undefined;
   onDeleteWorkspace: (() => void) | undefined;
@@ -21,10 +23,12 @@ interface OutletContext {
 export function SelectWorkspace() {
   const {
     activeWorkspace,
-    currentPanes,
+    groups,
+    panesByGroup,
     activePaneIndex,
     activeGroupInfo,
     systemStats,
+    totalPanes,
     onAddGroup,
     onRenameWorkspace,
     onDeleteWorkspace,
@@ -58,6 +62,7 @@ export function SelectWorkspace() {
           activeGroup={undefined}
           activePane={undefined}
           workspacePath={undefined}
+          totalPanes={0}
         />
       </div>
     );
@@ -75,7 +80,8 @@ export function SelectWorkspace() {
       />
       <div className="flex-1 bg-bg overflow-hidden">
         <Group
-          pane={currentPanes}
+          groups={groups}
+          panesByGroup={panesByGroup}
           activePaneIndex={activePaneIndex}
           onPaneClick={onPaneClick}
           onClosePane={onClosePane}
@@ -90,6 +96,7 @@ export function SelectWorkspace() {
         activeGroup={activeGroupInfo?.groupIndex}
         activePane={activeGroupInfo?.paneIndex}
         workspacePath={activeWorkspace.path}
+        totalPanes={totalPanes}
       />
     </div>
   );

@@ -1,14 +1,13 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 
 export function useRouteSync() {
   const location = useLocation();
 
   useEffect(() => {
     if (window.__TAURI__) {
-      window.__TAURI__.invoke("sync_route", { path: location.pathname }).catch(
-        () => {},
-      );
+      invoke("sync_route", { path: location.pathname }).catch(() => {});
     }
     window.history.replaceState(null, "", location.pathname);
   }, [location]);
