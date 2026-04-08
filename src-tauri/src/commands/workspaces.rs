@@ -17,17 +17,27 @@ pub struct Workspace {
     pub updated_at: String,
     pub last_opened_at: Option<String>,
     pub open_count: i32,
-    pub layout: Option<String>,
-    pub terminal_count: Option<i32>,
     pub agent: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
-pub struct PaneTree {
+pub struct Group {
+    pub id: String,
     pub workspace_id: String,
-    pub active_pane_index: i32,
-    pub tree_json: String,
-    pub updated_at: String,
+    pub order_index: i32,
+    pub size: f64,
+    pub split_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct Pane {
+    pub id: String,
+    pub group_id: String,
+    pub order_index: i32,
+    pub size: f64,
+    pub mode: String,
+    pub agent_command: Option<String>,
+    pub terminal_pid: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,8 +45,6 @@ pub struct WorkspaceCreateInput {
     pub name: String,
     pub color: String,
     pub path: Option<String>,
-    pub layout: Option<String>,
-    pub terminal_count: Option<i32>,
     pub agent: Option<String>,
 }
 
@@ -47,9 +55,40 @@ pub struct WorkspaceUpdateInput {
     pub path: Option<String>,
     pub description: Option<String>,
     pub is_pinned: Option<i32>,
-    pub layout: Option<String>,
-    pub terminal_count: Option<i32>,
     pub agent: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GroupCreateInput {
+    pub workspace_id: String,
+    pub order_index: i32,
+    pub size: Option<f64>,
+    pub split_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GroupUpdateInput {
+    pub order_index: Option<i32>,
+    pub size: Option<f64>,
+    pub split_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaneCreateInput {
+    pub group_id: String,
+    pub order_index: i32,
+    pub size: Option<f64>,
+    pub mode: String,
+    pub agent_command: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PaneUpdateInput {
+    pub order_index: Option<i32>,
+    pub size: Option<f64>,
+    pub mode: Option<String>,
+    pub agent_command: Option<String>,
+    pub terminal_pid: Option<i32>,
 }
 
 fn generate_workspace_id() -> String {
@@ -61,9 +100,10 @@ fn generate_workspace_id() -> String {
     format!("ws-{}", timestamp)
 }
 
-fn default_pane_tree_json() -> String {
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+fn generate_group_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
     let random_suffix: String = (0..8)
@@ -76,13 +116,26 @@ fn default_pane_tree_json() -> String {
             }
         })
         .collect();
+    format!("group-{}-{}", timestamp, random_suffix)
+}
 
-    format!(
-        r#"{{"id":"pane-{}-{}","split":"horizontal","children":[{{"id":"pane-{}-{}","split":"vertical","children":[{{"id":"pane-{}-{}"}}]}}]}}"#,
-        timestamp, random_suffix,
-        timestamp, random_suffix,
-        timestamp, random_suffix
-    )
+fn generate_pane_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let random_suffix: String = (0..8)
+        .map(|_| {
+            let idx = rand_simple() % 36;
+            if idx < 10 {
+                (b'0' + idx as u8) as char
+            } else {
+                (b'a' + (idx - 10) as u8) as char
+            }
+        })
+        .collect();
+    format!("pane-{}-{}", timestamp, random_suffix)
 }
 
 fn rand_simple() -> u32 {
@@ -116,28 +169,37 @@ pub async fn create_workspace(
     state: State<'_, AppState>,
     input: WorkspaceCreateInput,
 ) -> Result<Workspace, String> {
-    let id = generate_workspace_id();
-    let default_tree = default_pane_tree_json();
+    let ws_id = generate_workspace_id();
 
     let workspace = sqlx::query_as::<_, Workspace>(
-        "INSERT INTO workspaces (id, name, color, path, layout, terminal_count, agent) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *"
+        "INSERT INTO workspaces (id, name, color, path, agent) VALUES (?, ?, ?, ?, ?) RETURNING *"
     )
-    .bind(&id)
+    .bind(&ws_id)
     .bind(&input.name)
     .bind(&input.color)
     .bind(&input.path)
-    .bind(&input.layout)
-    .bind(&input.terminal_count)
     .bind(&input.agent)
     .fetch_one(&state.db)
     .await
     .map_err(|e| e.to_string())?;
 
+    // Create default group and pane
+    let group_id = generate_group_id();
     sqlx::query(
-        "INSERT INTO pane_trees (workspace_id, tree_json) VALUES (?, ?)"
+        "INSERT INTO groups (id, workspace_id, order_index, size, split_type) VALUES (?, ?, 0, 50.0, 'VERTICAL')"
     )
-    .bind(&id)
-    .bind(&default_tree)
+    .bind(&group_id)
+    .bind(&ws_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let pane_id = generate_pane_id();
+    sqlx::query(
+        "INSERT INTO panes (id, group_id, order_index, size, mode) VALUES (?, ?, 0, 100.0, 'TERMINAL')"
+    )
+    .bind(&pane_id)
+    .bind(&group_id)
     .execute(&state.db)
     .await
     .map_err(|e| e.to_string())?;
@@ -174,14 +236,6 @@ pub async fn update_workspace(
         updates.push("is_pinned = ?");
         has_updates = true;
     }
-    if input.layout.is_some() {
-        updates.push("layout = ?");
-        has_updates = true;
-    }
-    if input.terminal_count.is_some() {
-        updates.push("terminal_count = ?");
-        has_updates = true;
-    }
     if input.agent.is_some() {
         updates.push("agent = ?");
         has_updates = true;
@@ -213,12 +267,6 @@ pub async fn update_workspace(
     if let Some(is_pinned) = input.is_pinned {
         query_builder = query_builder.bind(is_pinned);
     }
-    if let Some(ref layout) = input.layout {
-        query_builder = query_builder.bind(layout);
-    }
-    if let Some(terminal_count) = input.terminal_count {
-        query_builder = query_builder.bind(terminal_count);
-    }
     if let Some(ref agent) = input.agent {
         query_builder = query_builder.bind(agent);
     }
@@ -240,37 +288,223 @@ pub async fn delete_workspace(state: State<'_, AppState>, id: String) -> Result<
 }
 
 #[tauri::command]
-pub async fn get_pane_tree(
+pub async fn get_groups(
     state: State<'_, AppState>,
     workspace_id: String,
-) -> Result<Option<PaneTree>, String> {
-    sqlx::query_as::<_, PaneTree>("SELECT * FROM pane_trees WHERE workspace_id = ?")
-        .bind(&workspace_id)
-        .fetch_optional(&state.db)
+) -> Result<Vec<Group>, String> {
+    sqlx::query_as::<_, Group>(
+        "SELECT * FROM groups WHERE workspace_id = ? ORDER BY order_index"
+    )
+    .bind(&workspace_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn create_group(
+    state: State<'_, AppState>,
+    input: GroupCreateInput,
+) -> Result<Group, String> {
+    let id = generate_group_id();
+    let size = input.size.unwrap_or(50.0);
+
+    sqlx::query_as::<_, Group>(
+        "INSERT INTO groups (id, workspace_id, order_index, size, split_type) VALUES (?, ?, ?, ?, ?) RETURNING *"
+    )
+    .bind(&id)
+    .bind(&input.workspace_id)
+    .bind(input.order_index)
+    .bind(size)
+    .bind(&input.split_type)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_group(
+    state: State<'_, AppState>,
+    id: String,
+    input: GroupUpdateInput,
+) -> Result<Group, String> {
+    let mut updates: Vec<&str> = Vec::new();
+    let mut has_updates = false;
+
+    if input.order_index.is_some() {
+        updates.push("order_index = ?");
+        has_updates = true;
+    }
+    if input.size.is_some() {
+        updates.push("size = ?");
+        has_updates = true;
+    }
+    if input.split_type.is_some() {
+        updates.push("split_type = ?");
+        has_updates = true;
+    }
+
+    if !has_updates {
+        return Err("No fields to update".to_string());
+    }
+
+    let query = format!(
+        "UPDATE groups SET {} WHERE id = ? RETURNING *",
+        updates.join(", ")
+    );
+
+    let mut query_builder = sqlx::query_as::<_, Group>(&query).bind(&id);
+
+    if let Some(order_index) = input.order_index {
+        query_builder = query_builder.bind(order_index);
+    }
+    if let Some(size) = input.size {
+        query_builder = query_builder.bind(size);
+    }
+    if let Some(ref split_type) = input.split_type {
+        query_builder = query_builder.bind(split_type);
+    }
+
+    query_builder
+        .fetch_one(&state.db)
         .await
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn save_pane_tree(
+pub async fn delete_group(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    sqlx::query("DELETE FROM groups WHERE id = ?")
+        .bind(&id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_panes(
+    state: State<'_, AppState>,
+    group_id: String,
+) -> Result<Vec<Pane>, String> {
+    sqlx::query_as::<_, Pane>(
+        "SELECT * FROM panes WHERE group_id = ? ORDER BY order_index"
+    )
+    .bind(&group_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_all_panes(
     state: State<'_, AppState>,
     workspace_id: String,
-    tree_json: String,
-    active_pane_index: i32,
-) -> Result<PaneTree, String> {
-    sqlx::query_as::<_, PaneTree>(
-        "INSERT INTO pane_trees (workspace_id, tree_json, active_pane_index) VALUES (?, ?, ?) 
-         ON CONFLICT(workspace_id) DO UPDATE SET tree_json = ?, active_pane_index = ?, updated_at = datetime('now')
-         RETURNING *"
+) -> Result<Vec<Pane>, String> {
+    sqlx::query_as::<_, Pane>(
+        "SELECT panes.* FROM panes 
+         JOIN groups ON panes.group_id = groups.id 
+         WHERE groups.workspace_id = ?
+         ORDER BY panes.order_index"
     )
     .bind(&workspace_id)
-    .bind(&tree_json)
-    .bind(active_pane_index)
-    .bind(&tree_json)
-    .bind(active_pane_index)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn create_pane(
+    state: State<'_, AppState>,
+    input: PaneCreateInput,
+) -> Result<Pane, String> {
+    let id = generate_pane_id();
+    let size = input.size.unwrap_or(50.0);
+
+    sqlx::query_as::<_, Pane>(
+        "INSERT INTO panes (id, group_id, order_index, size, mode, agent_command) VALUES (?, ?, ?, ?, ?, ?) RETURNING *"
+    )
+    .bind(&id)
+    .bind(&input.group_id)
+    .bind(input.order_index)
+    .bind(size)
+    .bind(&input.mode)
+    .bind(&input.agent_command)
     .fetch_one(&state.db)
     .await
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_pane(
+    state: State<'_, AppState>,
+    id: String,
+    input: PaneUpdateInput,
+) -> Result<Pane, String> {
+    let mut updates: Vec<&str> = Vec::new();
+    let mut has_updates = false;
+
+    if input.order_index.is_some() {
+        updates.push("order_index = ?");
+        has_updates = true;
+    }
+    if input.size.is_some() {
+        updates.push("size = ?");
+        has_updates = true;
+    }
+    if input.mode.is_some() {
+        updates.push("mode = ?");
+        has_updates = true;
+    }
+    if input.agent_command.is_some() {
+        updates.push("agent_command = ?");
+        has_updates = true;
+    }
+    if input.terminal_pid.is_some() {
+        updates.push("terminal_pid = ?");
+        has_updates = true;
+    }
+
+    if !has_updates {
+        return Err("No fields to update".to_string());
+    }
+
+    let query = format!(
+        "UPDATE panes SET {} WHERE id = ? RETURNING *",
+        updates.join(", ")
+    );
+
+    let mut query_builder = sqlx::query_as::<_, Pane>(&query).bind(&id);
+
+    if let Some(order_index) = input.order_index {
+        query_builder = query_builder.bind(order_index);
+    }
+    if let Some(size) = input.size {
+        query_builder = query_builder.bind(size);
+    }
+    if let Some(ref mode) = input.mode {
+        query_builder = query_builder.bind(mode);
+    }
+    if let Some(ref agent_command) = input.agent_command {
+        query_builder = query_builder.bind(agent_command);
+    }
+    if let Some(terminal_pid) = input.terminal_pid {
+        query_builder = query_builder.bind(terminal_pid);
+    }
+
+    query_builder
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_pane(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    sqlx::query("DELETE FROM panes WHERE id = ?")
+        .bind(&id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

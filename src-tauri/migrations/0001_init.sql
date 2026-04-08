@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS panes (
     order_index INTEGER NOT NULL,
     size REAL DEFAULT 50.0,
     mode TEXT NOT NULL CHECK (mode IN ('AGENT', 'TERMINAL')),
-    agent_name TEXT,
+    agent_command TEXT,
     terminal_pid INTEGER
 );
 
