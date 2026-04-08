@@ -1,21 +1,21 @@
 import { useOutletContext } from "react-router-dom";
-import { TopBar, StatusBar, Layer } from "../components";
+import { TopBar, StatusBar, Group } from "../components";
 import { Workspace, Pane } from "../types";
 
 interface OutletContext {
   activeWorkspace: Workspace | undefined;
   currentPanes: Pane;
   activePaneIndex: number;
-  activeLayerInfo: { layerIndex: number; paneIndex: number } | null | undefined;
+  activeGroupInfo: { groupIndex: number; paneIndex: number } | null | undefined;
   systemStats: { ram_percentage: number; cpu_usage: number };
-  onAddLayer: (() => void) | undefined;
+  onAddGroup: (() => void) | undefined;
   onRenameWorkspace: (() => void) | undefined;
   onDeleteWorkspace: (() => void) | undefined;
   onCloseWorkspace: (() => void) | undefined;
   onPaneClick: (index: number) => void;
   onClosePane: (paneId: string) => void;
-  onAddPane: (layerId: string) => void;
-  onCloseLayer: (() => void) | undefined;
+  onAddPane: (groupId: string) => void;
+  onCloseGroup: (() => void) | undefined;
 }
 
 export function SelectWorkspace() {
@@ -23,16 +23,16 @@ export function SelectWorkspace() {
     activeWorkspace,
     currentPanes,
     activePaneIndex,
-    activeLayerInfo,
+    activeGroupInfo,
     systemStats,
-    onAddLayer,
+    onAddGroup,
     onRenameWorkspace,
     onDeleteWorkspace,
     onCloseWorkspace,
     onPaneClick,
     onClosePane,
     onAddPane,
-    onCloseLayer,
+    onCloseGroup,
   } = useOutletContext<OutletContext>();
 
   if (!activeWorkspace) {
@@ -40,7 +40,7 @@ export function SelectWorkspace() {
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
           activeWorkspace={undefined}
-          onAddLayer={undefined}
+          onAddGroup={undefined}
           onRenameWorkspace={() => {}}
           onDeleteWorkspace={() => {}}
           onCloseWorkspace={() => {}}
@@ -55,7 +55,7 @@ export function SelectWorkspace() {
         <StatusBar
           ramPercent={systemStats.ram_percentage}
           cpuPercent={systemStats.cpu_usage}
-          activeLayer={undefined}
+          activeGroup={undefined}
           activePane={undefined}
           workspacePath={undefined}
         />
@@ -67,28 +67,28 @@ export function SelectWorkspace() {
     <div className="flex-1 flex flex-col min-w-0">
       <TopBar
         activeWorkspace={activeWorkspace}
-        onAddLayer={onAddLayer || (() => {})}
+        onAddGroup={onAddGroup || (() => {})}
         onRenameWorkspace={onRenameWorkspace || (() => {})}
         onDeleteWorkspace={onDeleteWorkspace || (() => {})}
         onCloseWorkspace={onCloseWorkspace || (() => {})}
         onOpenSettings={() => {}}
       />
       <div className="flex-1 bg-bg overflow-hidden">
-        <Layer
+        <Group
           pane={currentPanes}
           activePaneIndex={activePaneIndex}
           onPaneClick={onPaneClick}
           onClosePane={onClosePane}
           onAddPane={onAddPane}
-          onCloseLayer={onCloseLayer || (() => {})}
+          onCloseGroup={onCloseGroup || (() => {})}
           workspacePath={activeWorkspace.path}
         />
       </div>
       <StatusBar
         ramPercent={systemStats.ram_percentage}
         cpuPercent={systemStats.cpu_usage}
-        activeLayer={activeLayerInfo?.layerIndex}
-        activePane={activeLayerInfo?.paneIndex}
+        activeGroup={activeGroupInfo?.groupIndex}
+        activePane={activeGroupInfo?.paneIndex}
         workspacePath={activeWorkspace.path}
       />
     </div>

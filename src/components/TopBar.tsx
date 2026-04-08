@@ -4,7 +4,7 @@ import { Workspace } from '../types';
 
 interface TopBarProps {
   activeWorkspace: Workspace | undefined;
-  onAddLayer?: () => void;
+  onAddGroup?: () => void;
   onRenameWorkspace?: () => void;
   onDeleteWorkspace?: () => void;
   onOpenSettings?: () => void;
@@ -13,7 +13,7 @@ interface TopBarProps {
 
 export function TopBar({
   activeWorkspace,
-  onAddLayer,
+  onAddGroup,
   onRenameWorkspace,
   onDeleteWorkspace,
   onOpenSettings,
@@ -48,13 +48,13 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-3 text-[10px] text-text-inactive">
-        {onAddLayer && (
+        {onAddGroup && (
           <button
-            onClick={onAddLayer}
+            onClick={onAddGroup}
             className="text-[#aaaaaa] hover:text-white px-2 py-0.5 transition-colors flex items-center gap-1.5"
           >
             <Plus className="w-3 h-3" />
-            Add Layer
+            Add Group
           </button>
         )}
 

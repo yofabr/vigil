@@ -6,26 +6,26 @@ import { Workspace, Pane, WORKSPACE_COLORS, createDefaultPanes, generatePaneId }
 function countAllPanes(pane: Pane): number {
   if (!pane.children) return 1;
   if (pane.split === "horizontal") {
-    return pane.children.reduce((acc, layer) => acc + countAllPanes(layer), 0);
+    return pane.children.reduce((acc, group) => acc + countAllPanes(group), 0);
   }
   return pane.children.length;
 }
 
-function findActiveLayerAndPaneIndex(pane: Pane, targetIndex: number): { layerIndex: number; paneIndex: number } | null {
+function findActiveGroupAndPaneIndex(pane: Pane, targetIndex: number): { groupIndex: number; paneIndex: number } | null {
   if (!pane.children || pane.split !== "horizontal") return null;
 
   let currentOffset = 0;
   for (let i = 0; i < pane.children.length; i++) {
-    const layer = pane.children[i];
-    const layerPaneCount = layer.children?.length || 0;
+    const group = pane.children[i];
+    const groupPaneCount = group.children?.length || 0;
     
-    if (targetIndex < currentOffset + layerPaneCount) {
+    if (targetIndex < currentOffset + groupPaneCount) {
       return {
-        layerIndex: i,
+        groupIndex: i,
         paneIndex: targetIndex - currentOffset,
       };
     }
-    currentOffset += layerPaneCount;
+    currentOffset += groupPaneCount;
   }
   return null;
 }
@@ -34,12 +34,12 @@ function findPaneContainingIndex(pane: Pane, targetIndex: number): string | null
   if (!pane.children || pane.split !== "horizontal") return null;
 
   let currentOffset = 0;
-  for (const layer of pane.children) {
-    const layerPaneCount = layer.children?.length || 0;
-    if (targetIndex < currentOffset + layerPaneCount) {
-      return layer.id;
+  for (const group of pane.children) {
+    const groupPaneCount = group.children?.length || 0;
+    if (targetIndex < currentOffset + groupPaneCount) {
+      return group.id;
     }
-    currentOffset += layerPaneCount;
+    currentOffset += groupPaneCount;
   }
   return null;
 }
@@ -72,7 +72,7 @@ export function AppLayout() {
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const currentPanes = activeWorkspaceId ? (workspacePanes[activeWorkspaceId] || createDefaultPanes()) : createDefaultPanes();
-  const activeLayerInfo = findActiveLayerAndPaneIndex(currentPanes, activePaneIndex);
+  const activeGroupInfo = findActiveGroupAndPaneIndex(currentPanes, activePaneIndex);
 
   useEffect(() => {
     if (workspaceId && workspaceId !== activeWorkspaceId) {
@@ -129,25 +129,25 @@ export function AppLayout() {
     setActivePaneIndex(index);
   }, []);
 
-  const handleAddLayer = useCallback(() => {
+  const handleAddGroup = useCallback(() => {
     if (!activeWorkspaceId) return;
     const currentP = workspacePanes[activeWorkspaceId];
 
     const pane1 = { id: generatePaneId() };
-    const newLayer: Pane = {
+    const newGroup: Pane = {
       id: generatePaneId(),
       split: "vertical",
       children: [pane1],
     };
 
-    const addLayer = (p: Pane): Pane => {
+    const addGroup = (p: Pane): Pane => {
       return {
         ...p,
-        children: [...(p.children || []), newLayer],
+        children: [...(p.children || []), newGroup],
       };
     };
 
-    const newPanes = addLayer(currentP);
+    const newPanes = addGroup(currentP);
     setWorkspacePanes((prev) => ({
       ...prev,
       [activeWorkspaceId]: newPanes,
@@ -164,12 +164,12 @@ export function AppLayout() {
         
         for (const child of p.children) {
           if (child.children && child.children.some(c => c.id === targetId)) {
-            const layerWithPaneRemoved = {
+            const groupWithPaneRemoved = {
               ...child,
               children: child.children.filter(c => c.id !== targetId)
             };
             
-            if (layerWithPaneRemoved.children.length === 0) {
+            if (groupWithPaneRemoved.children.length === 0) {
               return {
                 ...p,
                 children: p.children.filter(c => c.id !== child.id)
@@ -178,7 +178,7 @@ export function AppLayout() {
             
             return {
               ...p,
-              children: p.children.map(c => c.id === child.id ? layerWithPaneRemoved : c)
+              children: p.children.map(c => c.id === child.id ? groupWithPaneRemoved : c)
             };
           }
         }
@@ -206,13 +206,13 @@ export function AppLayout() {
     [workspacePanes, activeWorkspaceId, activePaneIndex],
   );
 
-  const handleAddPaneToLayer = useCallback(
-    (layerId: string) => {
+  const handleAddPaneToGroup = useCallback(
+    (groupId: string) => {
       if (!activeWorkspaceId) return;
       const currentP = workspacePanes[activeWorkspaceId];
 
-      const addPaneToLayer = (p: Pane): Pane => {
-        if (p.id === layerId) {
+      const addPaneToGroup = (p: Pane): Pane => {
+        if (p.id === groupId) {
           const newPane = { id: generatePaneId() };
           return {
             ...p,
@@ -221,12 +221,12 @@ export function AppLayout() {
           };
         }
         if (p.children) {
-          return { ...p, children: p.children.map(addPaneToLayer) };
+          return { ...p, children: p.children.map(addPaneToGroup) };
         }
         return p;
       };
 
-      const newPanes = addPaneToLayer(currentP);
+      const newPanes = addPaneToGroup(currentP);
       setWorkspacePanes((prev) => ({
         ...prev,
         [activeWorkspaceId]: newPanes,
@@ -247,7 +247,7 @@ export function AppLayout() {
     console.log("Delete workspace:", activeWorkspaceId);
   }, [activeWorkspaceId]);
 
-  const handleCloseLayer = useCallback(() => {
+  const handleCloseGroup = useCallback(() => {
     if (!activeWorkspaceId) return;
     const currentP = workspacePanes[activeWorkspaceId];
     if (!currentP.children || currentP.children.length <= 1) {
@@ -259,12 +259,12 @@ export function AppLayout() {
       return;
     }
 
-    const activeLayerId = findPaneContainingIndex(currentP, activePaneIndex);
-    if (!activeLayerId) return;
+    const activeGroupId = findPaneContainingIndex(currentP, activePaneIndex);
+    if (!activeGroupId) return;
 
     const newPanes = {
       ...currentP,
-      children: currentP.children.filter((l) => l.id !== activeLayerId),
+      children: currentP.children.filter((g) => g.id !== activeGroupId),
     };
 
     setWorkspacePanes((prev) => ({
@@ -298,15 +298,15 @@ export function AppLayout() {
             activeWorkspace,
             currentPanes,
             activePaneIndex,
-            activeLayerInfo,
+            activeGroupInfo,
             systemStats,
-            onAddLayer: activeWorkspaceId ? handleAddLayer : undefined,
+            onAddGroup: activeWorkspaceId ? handleAddGroup : undefined,
             onRenameWorkspace: activeWorkspaceId ? handleRenameWorkspace : undefined,
             onDeleteWorkspace: activeWorkspaceId ? handleDeleteWorkspace : undefined,
             onPaneClick: handlePaneClick,
             onClosePane: handleClosePaneById,
-            onAddPane: handleAddPaneToLayer,
-            onCloseLayer: activeWorkspaceId ? handleCloseLayer : undefined,
+            onAddPane: handleAddPaneToGroup,
+            onCloseGroup: activeWorkspaceId ? handleCloseGroup : undefined,
             onCloseWorkspace: activeWorkspaceId ? handleCloseWorkspace : undefined,
             workspaces,
             onWorkspaceSelect: handleWorkspaceSelect,
