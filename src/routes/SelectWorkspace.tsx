@@ -41,29 +41,11 @@ export function SelectWorkspace() {
 
   if (!activeWorkspace) {
     return (
-      <div className="flex-1 flex flex-col min-w-0">
-        <TopBar
-          activeWorkspace={undefined}
-          onAddGroup={undefined}
-          onRenameWorkspace={() => {}}
-          onDeleteWorkspace={() => {}}
-          onCloseWorkspace={() => {}}
-          onOpenSettings={() => {}}
-        />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-[#555555] text-lg font-mono mb-2">Select a workspace</div>
-            <div className="text-[#444444] text-sm font-mono">Choose a workspace from the sidebar to get started</div>
-          </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-[#555555] text-lg font-mono mb-2">Select a workspace</div>
+          <div className="text-[#444444] text-sm font-mono">Choose a workspace from the sidebar to get started</div>
         </div>
-        <StatusBar
-          ramPercent={systemStats.ram_percentage}
-          cpuPercent={systemStats.cpu_usage}
-          activeGroup={undefined}
-          activePane={undefined}
-          workspacePath={undefined}
-          totalPanes={0}
-        />
       </div>
     );
   }
