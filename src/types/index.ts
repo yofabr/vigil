@@ -20,21 +20,16 @@ export interface Workspace {
   openCount?: number;
   lastOpenedAt?: string;
   agent?: string;
-}
-
-export interface Group {
-  id: string;
-  workspace_id: string;
-  order_index: number;
-  size: number;
-  split_type: SplitType;
+  split_type?: SplitType;
+  split_size?: number;
 }
 
 export interface DbPane {
   id: string;
-  group_id: string;
+  workspace_id: string;
   order_index: number;
   size: number;
+  split_type?: SplitType;
   mode: PaneMode;
   agent_command?: string;
   terminal_pid?: number;
@@ -54,25 +49,15 @@ export interface WorkspaceUpdateInput {
   description?: string;
   isPinned?: number;
   agent?: string;
-}
-
-export interface GroupCreateInput {
-  workspace_id: string;
-  order_index: number;
-  size?: number;
-  split_type: SplitType;
-}
-
-export interface GroupUpdateInput {
-  order_index?: number;
-  size?: number;
   split_type?: SplitType;
+  split_size?: number;
 }
 
 export interface PaneCreateInput {
-  group_id: string;
+  workspace_id: string;
   order_index: number;
   size?: number;
+  split_type?: SplitType;
   mode: PaneMode;
   agent_command?: string;
 }
@@ -80,6 +65,7 @@ export interface PaneCreateInput {
 export interface PaneUpdateInput {
   order_index?: number;
   size?: number;
+  split_type?: SplitType;
   mode?: PaneMode;
   agent_command?: string;
   terminal_pid?: number;

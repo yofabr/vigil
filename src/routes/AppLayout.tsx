@@ -1,54 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { Sidebar } from "../components";
-import { Workspace, Group, DbPane } from "../types";
+import { Workspace, DbPane } from "../types";
 import { api } from "../lib/api";
-
-function countAllPanes(groups: Group[], panesByGroup: Record<string, DbPane[]>): number {
-  return groups.reduce((acc, group) => {
-    const panes = panesByGroup[group.id] || [];
-    return acc + panes.length;
-  }, 0);
-}
-
-function findActiveGroupAndPaneIndex(
-  groups: Group[],
-  panesByGroup: Record<string, DbPane[]>,
-  targetIndex: number
-): { groupIndex: number; paneIndex: number } | null {
-  let currentOffset = 0;
-  for (let i = 0; i < groups.length; i++) {
-    const group = groups[i];
-    const panes = panesByGroup[group.id] || [];
-    const groupPaneCount = panes.length;
-    
-    if (targetIndex < currentOffset + groupPaneCount) {
-      return {
-        groupIndex: i,
-        paneIndex: targetIndex - currentOffset,
-      };
-    }
-    currentOffset += groupPaneCount;
-  }
-  return null;
-}
-
-function findPaneContainingIndex(
-  groups: Group[],
-  panesByGroup: Record<string, DbPane[]>,
-  targetIndex: number
-): string | null {
-  let currentOffset = 0;
-  for (const group of groups) {
-    const panes = panesByGroup[group.id] || [];
-    const groupPaneCount = panes.length;
-    if (targetIndex < currentOffset + groupPaneCount) {
-      return group.id;
-    }
-    currentOffset += groupPaneCount;
-  }
-  return null;
-}
 
 interface SystemStats {
   ram_percentage: number;
@@ -61,8 +15,7 @@ export function AppLayout() {
   const workspaceId = params.workspaceId;
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [panesByGroup, setPanesByGroup] = useState<Record<string, DbPane[]>>({});
+  const [panes, setPanes] = useState<DbPane[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(workspaceId || null);
   const [activePaneIndex, setActivePaneIndex] = useState(0);
   const [sidebarWidth, setSidebarWidth] = useState(220);
@@ -70,8 +23,7 @@ export function AppLayout() {
   const [loading, setLoading] = useState(true);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
-  const totalPanes = countAllPanes(groups, panesByGroup);
-  const activeGroupInfo = findActiveGroupAndPaneIndex(groups, panesByGroup, activePaneIndex);
+  const totalPanes = panes.length;
 
   const loadWorkspaces = useCallback(async () => {
     try {
@@ -82,19 +34,12 @@ export function AppLayout() {
     }
   }, []);
 
-  const loadGroupsAndPanes = useCallback(async (wsId: string) => {
+  const loadPanes = useCallback(async (wsId: string) => {
     try {
-      const grps = await api.getGroups(wsId);
-      setGroups(grps);
-
-      const panesMap: Record<string, DbPane[]> = {};
-      for (const group of grps) {
-        const panes = await api.getPanes(group.id);
-        panesMap[group.id] = panes;
-      }
-      setPanesByGroup(panesMap);
+      const p = await api.getPanes(wsId);
+      setPanes(p);
     } catch (err) {
-      console.error('Failed to load groups/panes:', err);
+      console.error('Failed to load panes:', err);
     }
   }, []);
 
@@ -116,12 +61,11 @@ export function AppLayout() {
 
   useEffect(() => {
     if (activeWorkspaceId) {
-      loadGroupsAndPanes(activeWorkspaceId);
+      loadPanes(activeWorkspaceId);
     } else {
-      setGroups([]);
-      setPanesByGroup({});
+      setPanes([]);
     }
-  }, [activeWorkspaceId, loadGroupsAndPanes]);
+  }, [activeWorkspaceId, loadPanes]);
 
   useEffect(() => {
     const updateStats = () => {
@@ -171,34 +115,48 @@ export function AppLayout() {
     setActivePaneIndex(index);
   }, []);
 
-  const handleAddGroup = useCallback(async () => {
+  const handleResizePane = useCallback(
+    async (paneId: string, size: number) => {
+      if (!activeWorkspaceId) return;
+      
+      try {
+        await api.updatePane(paneId, { size });
+        await loadPanes(activeWorkspaceId);
+      } catch (err) {
+        console.error('Failed to resize pane:', err);
+      }
+    },
+    [activeWorkspaceId, loadPanes],
+  );
+
+  const handleAddPane = useCallback(async () => {
     if (!activeWorkspaceId) return;
     
-    const orderIndex = groups.length;
+    const orderIndex = panes.length;
     
     try {
-      await api.createGroup({
+      await api.createPane({
         workspace_id: activeWorkspaceId,
         order_index: orderIndex,
         size: 50,
-        split_type: 'VERTICAL',
+        mode: 'TERMINAL',
       });
-      await loadGroupsAndPanes(activeWorkspaceId);
+      await loadPanes(activeWorkspaceId);
     } catch (err) {
-      console.error('Failed to create group:', err);
+      console.error('Failed to create pane:', err);
     }
-  }, [activeWorkspaceId, groups.length, loadGroupsAndPanes]);
+  }, [activeWorkspaceId, panes.length, loadPanes]);
 
-  const handleClosePaneById = useCallback(
+  const handleClosePane = useCallback(
     async (paneId: string) => {
       if (!activeWorkspaceId) return;
       
       try {
         await api.deletePane(paneId);
-        await loadGroupsAndPanes(activeWorkspaceId);
+        await loadPanes(activeWorkspaceId);
         
-        const newPaneCount = groups.reduce((acc, g) => acc + (panesByGroup[g.id]?.length || 0), 0);
-        if (activePaneIndex >= newPaneCount && newPaneCount > 0) {
+        const newPaneCount = panes.length;
+        if (activePaneIndex >= newPaneCount - 1 && newPaneCount > 0) {
           setActivePaneIndex(newPaneCount - 1);
         } else if (newPaneCount === 0) {
           setActivePaneIndex(0);
@@ -207,29 +165,7 @@ export function AppLayout() {
         console.error('Failed to delete pane:', err);
       }
     },
-    [activeWorkspaceId, groups, panesByGroup, activePaneIndex, loadGroupsAndPanes],
-  );
-
-  const handleAddPaneToGroup = useCallback(
-    async (groupId: string) => {
-      if (!activeWorkspaceId) return;
-      
-      const currentPanes = panesByGroup[groupId] || [];
-      const orderIndex = currentPanes.length;
-      
-      try {
-        await api.createPane({
-          group_id: groupId,
-          order_index: orderIndex,
-          size: 50,
-          mode: 'TERMINAL',
-        });
-        await loadGroupsAndPanes(activeWorkspaceId);
-      } catch (err) {
-        console.error('Failed to create pane:', err);
-      }
-    },
-    [activeWorkspaceId, panesByGroup, loadGroupsAndPanes],
+    [activeWorkspaceId, panes, activePaneIndex, loadPanes],
   );
 
   const handleOpenSettings = useCallback(() => {
@@ -243,21 +179,6 @@ export function AppLayout() {
   const handleDeleteWorkspace = useCallback(() => {
     console.log("Delete workspace:", activeWorkspaceId);
   }, [activeWorkspaceId]);
-
-  const handleCloseGroup = useCallback(async () => {
-    if (!activeWorkspaceId) return;
-    
-    const groupId = findPaneContainingIndex(groups, panesByGroup, activePaneIndex);
-    if (!groupId) return;
-    
-    try {
-      await api.deleteGroup(groupId);
-      await loadGroupsAndPanes(activeWorkspaceId);
-      setActivePaneIndex(0);
-    } catch (err) {
-      console.error('Failed to delete group:', err);
-    }
-  }, [activeWorkspaceId, groups, panesByGroup, activePaneIndex, loadGroupsAndPanes]);
 
   const handleCloseWorkspace = useCallback(() => {
     setActiveWorkspaceId(null);
@@ -289,19 +210,16 @@ export function AppLayout() {
         <div className="flex-1 flex flex-col min-w-0">
           <Outlet context={{
             activeWorkspace,
-            groups,
-            panesByGroup,
+            panes,
             activePaneIndex,
-            activeGroupInfo,
             systemStats,
             totalPanes,
-            onAddGroup: activeWorkspaceId ? handleAddGroup : undefined,
+            onAddPane: activeWorkspaceId ? handleAddPane : undefined,
+            onResizePane: activeWorkspaceId ? handleResizePane : undefined,
             onRenameWorkspace: activeWorkspaceId ? handleRenameWorkspace : undefined,
             onDeleteWorkspace: activeWorkspaceId ? handleDeleteWorkspace : undefined,
             onPaneClick: handlePaneClick,
-            onClosePane: handleClosePaneById,
-            onAddPane: handleAddPaneToGroup,
-            onCloseGroup: activeWorkspaceId ? handleCloseGroup : undefined,
+            onClosePane: handleClosePane,
             onCloseWorkspace: activeWorkspaceId ? handleCloseWorkspace : undefined,
             workspaces,
             onWorkspaceSelect: handleWorkspaceSelect,

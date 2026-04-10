@@ -18,23 +18,17 @@ pub struct Workspace {
     pub last_opened_at: Option<String>,
     pub open_count: i32,
     pub agent: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, FromRow)]
-pub struct Group {
-    pub id: String,
-    pub workspace_id: String,
-    pub order_index: i32,
-    pub size: f64,
-    pub split_type: String,
+    pub split_type: Option<String>,
+    pub split_size: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Pane {
     pub id: String,
-    pub group_id: String,
+    pub workspace_id: String,
     pub order_index: i32,
     pub size: f64,
+    pub split_type: Option<String>,
     pub mode: String,
     pub agent_command: Option<String>,
     pub terminal_pid: Option<i32>,
@@ -56,28 +50,16 @@ pub struct WorkspaceUpdateInput {
     pub description: Option<String>,
     pub is_pinned: Option<i32>,
     pub agent: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GroupCreateInput {
-    pub workspace_id: String,
-    pub order_index: i32,
-    pub size: Option<f64>,
-    pub split_type: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GroupUpdateInput {
-    pub order_index: Option<i32>,
-    pub size: Option<f64>,
     pub split_type: Option<String>,
+    pub split_size: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PaneCreateInput {
-    pub group_id: String,
+    pub workspace_id: String,
     pub order_index: i32,
     pub size: Option<f64>,
+    pub split_type: Option<String>,
     pub mode: String,
     pub agent_command: Option<String>,
 }
@@ -86,6 +68,7 @@ pub struct PaneCreateInput {
 pub struct PaneUpdateInput {
     pub order_index: Option<i32>,
     pub size: Option<f64>,
+    pub split_type: Option<String>,
     pub mode: Option<String>,
     pub agent_command: Option<String>,
     pub terminal_pid: Option<i32>,
@@ -98,25 +81,6 @@ fn generate_workspace_id() -> String {
         .unwrap()
         .as_millis();
     format!("ws-{}", timestamp)
-}
-
-fn generate_group_id() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-    let random_suffix: String = (0..8)
-        .map(|_| {
-            let idx = rand_simple() % 36;
-            if idx < 10 {
-                (b'0' + idx as u8) as char
-            } else {
-                (b'a' + (idx - 10) as u8) as char
-            }
-        })
-        .collect();
-    format!("group-{}-{}", timestamp, random_suffix)
 }
 
 fn generate_pane_id() -> String {
@@ -183,23 +147,13 @@ pub async fn create_workspace(
     .await
     .map_err(|e| e.to_string())?;
 
-    // Create default group and pane
-    let group_id = generate_group_id();
-    sqlx::query(
-        "INSERT INTO groups (id, workspace_id, order_index, size, split_type) VALUES (?, ?, 0, 50.0, 'VERTICAL')"
-    )
-    .bind(&group_id)
-    .bind(&ws_id)
-    .execute(&state.db)
-    .await
-    .map_err(|e| e.to_string())?;
-
+    // Create default pane
     let pane_id = generate_pane_id();
     sqlx::query(
-        "INSERT INTO panes (id, group_id, order_index, size, mode) VALUES (?, ?, 0, 100.0, 'TERMINAL')"
+        "INSERT INTO panes (id, workspace_id, order_index, size, split_type, mode) VALUES (?, ?, 0, 100.0, 'VERTICAL', 'TERMINAL')"
     )
     .bind(&pane_id)
-    .bind(&group_id)
+    .bind(&ws_id)
     .execute(&state.db)
     .await
     .map_err(|e| e.to_string())?;
@@ -240,6 +194,14 @@ pub async fn update_workspace(
         updates.push("agent = ?");
         has_updates = true;
     }
+    if input.split_type.is_some() {
+        updates.push("split_type = ?");
+        has_updates = true;
+    }
+    if input.split_size.is_some() {
+        updates.push("split_size = ?");
+        has_updates = true;
+    }
 
     if !has_updates {
         return Err("No fields to update".to_string());
@@ -270,6 +232,12 @@ pub async fn update_workspace(
     if let Some(ref agent) = input.agent {
         query_builder = query_builder.bind(agent);
     }
+    if let Some(ref split_type) = input.split_type {
+        query_builder = query_builder.bind(split_type);
+    }
+    if let Some(split_size) = input.split_size {
+        query_builder = query_builder.bind(split_size);
+    }
 
     query_builder
         .fetch_one(&state.db)
@@ -288,123 +256,12 @@ pub async fn delete_workspace(state: State<'_, AppState>, id: String) -> Result<
 }
 
 #[tauri::command]
-pub async fn get_groups(
-    state: State<'_, AppState>,
-    workspace_id: String,
-) -> Result<Vec<Group>, String> {
-    sqlx::query_as::<_, Group>(
-        "SELECT * FROM groups WHERE workspace_id = ? ORDER BY order_index"
-    )
-    .bind(&workspace_id)
-    .fetch_all(&state.db)
-    .await
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn create_group(
-    state: State<'_, AppState>,
-    input: GroupCreateInput,
-) -> Result<Group, String> {
-    let id = generate_group_id();
-    let size = input.size.unwrap_or(50.0);
-
-    sqlx::query_as::<_, Group>(
-        "INSERT INTO groups (id, workspace_id, order_index, size, split_type) VALUES (?, ?, ?, ?, ?) RETURNING *"
-    )
-    .bind(&id)
-    .bind(&input.workspace_id)
-    .bind(input.order_index)
-    .bind(size)
-    .bind(&input.split_type)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn update_group(
-    state: State<'_, AppState>,
-    id: String,
-    input: GroupUpdateInput,
-) -> Result<Group, String> {
-    let mut updates: Vec<&str> = Vec::new();
-    let mut has_updates = false;
-
-    if input.order_index.is_some() {
-        updates.push("order_index = ?");
-        has_updates = true;
-    }
-    if input.size.is_some() {
-        updates.push("size = ?");
-        has_updates = true;
-    }
-    if input.split_type.is_some() {
-        updates.push("split_type = ?");
-        has_updates = true;
-    }
-
-    if !has_updates {
-        return Err("No fields to update".to_string());
-    }
-
-    let query = format!(
-        "UPDATE groups SET {} WHERE id = ? RETURNING *",
-        updates.join(", ")
-    );
-
-    let mut query_builder = sqlx::query_as::<_, Group>(&query).bind(&id);
-
-    if let Some(order_index) = input.order_index {
-        query_builder = query_builder.bind(order_index);
-    }
-    if let Some(size) = input.size {
-        query_builder = query_builder.bind(size);
-    }
-    if let Some(ref split_type) = input.split_type {
-        query_builder = query_builder.bind(split_type);
-    }
-
-    query_builder
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn delete_group(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    sqlx::query("DELETE FROM groups WHERE id = ?")
-        .bind(&id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn get_panes(
     state: State<'_, AppState>,
-    group_id: String,
-) -> Result<Vec<Pane>, String> {
-    sqlx::query_as::<_, Pane>(
-        "SELECT * FROM panes WHERE group_id = ? ORDER BY order_index"
-    )
-    .bind(&group_id)
-    .fetch_all(&state.db)
-    .await
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn get_all_panes(
-    state: State<'_, AppState>,
     workspace_id: String,
 ) -> Result<Vec<Pane>, String> {
     sqlx::query_as::<_, Pane>(
-        "SELECT panes.* FROM panes 
-         JOIN groups ON panes.group_id = groups.id 
-         WHERE groups.workspace_id = ?
-         ORDER BY panes.order_index"
+        "SELECT * FROM panes WHERE workspace_id = ? ORDER BY order_index"
     )
     .bind(&workspace_id)
     .fetch_all(&state.db)
@@ -421,12 +278,13 @@ pub async fn create_pane(
     let size = input.size.unwrap_or(50.0);
 
     sqlx::query_as::<_, Pane>(
-        "INSERT INTO panes (id, group_id, order_index, size, mode, agent_command) VALUES (?, ?, ?, ?, ?, ?) RETURNING *"
+        "INSERT INTO panes (id, workspace_id, order_index, size, split_type, mode, agent_command) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *"
     )
     .bind(&id)
-    .bind(&input.group_id)
+    .bind(&input.workspace_id)
     .bind(input.order_index)
     .bind(size)
+    .bind(&input.split_type)
     .bind(&input.mode)
     .bind(&input.agent_command)
     .fetch_one(&state.db)
@@ -449,6 +307,10 @@ pub async fn update_pane(
     }
     if input.size.is_some() {
         updates.push("size = ?");
+        has_updates = true;
+    }
+    if input.split_type.is_some() {
+        updates.push("split_type = ?");
         has_updates = true;
     }
     if input.mode.is_some() {
@@ -480,6 +342,9 @@ pub async fn update_pane(
     }
     if let Some(size) = input.size {
         query_builder = query_builder.bind(size);
+    }
+    if let Some(ref split_type) = input.split_type {
+        query_builder = query_builder.bind(split_type);
     }
     if let Some(ref mode) = input.mode {
         query_builder = query_builder.bind(mode);

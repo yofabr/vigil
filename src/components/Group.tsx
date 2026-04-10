@@ -1,162 +1,110 @@
-import { useRef } from 'react';
-import { X, Layers, MousePointer, Info } from 'lucide-react';
-import { Group as GroupType, DbPane } from '../types';
+import { useCallback, useRef } from 'react';
+import { Layers, MousePointer } from 'lucide-react';
+import { DbPane } from '../types';
 import { Pane } from './Pane';
 
-interface GroupProps {
-  groups: GroupType[];
-  panesByGroup: Record<string, DbPane[]>;
-  activePaneIndex: number;
-  onPaneClick: (index: number) => void;
-  onClosePane?: (paneId: string) => void;
-  onAddPane?: (groupId: string) => void;
-  onCloseGroup?: (groupId: string) => void;
-  workspacePath?: string;
-}
-
-const MIN_SIZE = 150;
-
-function VerticalPaneGroup({
-  group,
-  panes,
-  groupNumber,
-  paneIndexOffset,
-  activePaneIndex,
-  onPaneClick,
-  onClosePane,
-  onAddPane,
-  onCloseGroup,
-  workspacePath,
-}: {
-  group: GroupType;
+interface LayoutProps {
   panes: DbPane[];
-  groupNumber: number;
-  paneIndexOffset: number;
   activePaneIndex: number;
   onPaneClick: (index: number) => void;
   onClosePane?: (paneId: string) => void;
-  onAddPane?: (groupId: string) => void;
-  onCloseGroup?: (groupId: string) => void;
+  onResizePane?: (paneId: string, size: number) => void;
   workspacePath?: string;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const totalPanes = panes.length;
-  
-  const getPaneSize = (index: number): number => {
-    if (totalPanes === 1) return 100;
-    const pane = panes[index];
-    if (pane && pane.size) return pane.size;
-    return 100 / totalPanes;
-  };
-
-  return (
-    <div ref={containerRef} className="flex flex-col h-full w-full relative">
-      <div className="h-6 flex items-center justify-between px-2 bg-bg border-b border-border-inactive">
-        <div className="flex items-center gap-1.5">
-          <Layers className="w-3 h-3 text-[#666666]" />
-          <span className="text-[10px] text-[#aaaaaa] font-mono">Group {groupNumber}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {onCloseGroup && (
-            <button
-              onClick={() => onCloseGroup(group.id)}
-              className="text-[#aaaaaa] hover:text-red-400 text-xs px-1"
-              title="Close group"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-          {onAddPane && (
-            <button
-              onClick={() => onAddPane(group.id)}
-              className="text-[#aaaaaa] hover:text-white text-xs px-1"
-              title="Add pane"
-            >
-              +
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="flex-1 flex flex-col">
-        {panes.map((pane, idx) => {
-        const size = getPaneSize(idx);
-        const isActive = (paneIndexOffset + idx) === activePaneIndex;
-        
-        return (
-          <div
-            key={pane.id}
-            className="relative border-b border-border-inactive"
-            style={{
-              height: `${size}%`,
-              minHeight: MIN_SIZE,
-            }}
-          >
-            <Pane
-              index={paneIndexOffset + idx}
-              isActive={isActive}
-              totalPanes={totalPanes}
-              mode={pane.mode}
-              agentCommand={pane.agent_command}
-              onClick={() => onPaneClick(paneIndexOffset + idx)}
-              onClose={onClosePane ? () => onClosePane(pane.id) : undefined}
-              workspacePath={workspacePath}
-            />
-            
-            {idx < panes.length - 1 && (
-              <div
-                className="absolute left-0 right-0 h-[4px] bg-transparent hover:bg-white/50 cursor-row-resize z-10"
-                style={{ top: '100%', transform: 'translateY(-50%)' }}
-              />
-            )}
-          </div>
-        );
-      })}
-      </div>
-    </div>
-  );
 }
+
+const MIN_PANE_WIDTH = 200;
 
 export function Group({
-  groups,
-  panesByGroup,
+  panes,
   activePaneIndex,
   onPaneClick,
   onClosePane,
-  onAddPane,
-  onCloseGroup,
+  onResizePane,
   workspacePath,
-}: GroupProps) {
+}: LayoutProps) {
+  const totalPanes = panes.length;
   const containerRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef<{ 
+    index: number; 
+    startX: number; 
+    startLeftWidth: number;
+    startRightWidth: number;
+  } | null>(null);
 
-  const totalGroups = groups.length;
+  const handleResizeStart = useCallback((e: React.MouseEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const leftEl = document.getElementById(`pane-${index}`);
+    const rightEl = document.getElementById(`pane-${index + 1}`);
+    
+    if (!leftEl || !rightEl) return;
+    
+    resizeRef.current = {
+      index,
+      startX: e.clientX,
+      startLeftWidth: leftEl.clientWidth,
+      startRightWidth: rightEl.clientWidth,
+    };
 
-  const getGroupSize = (index: number): number => {
-    if (totalGroups === 1) return 100;
-    const group = groups[index];
-    if (group && group.size) return group.size;
-    return 100 / totalGroups;
-  };
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizeRef.current || !leftEl || !rightEl) return;
+      
+      const delta = moveEvent.clientX - resizeRef.current.startX;
+      const newLeft = Math.max(MIN_PANE_WIDTH, resizeRef.current.startLeftWidth + delta);
+      const newRight = Math.max(MIN_PANE_WIDTH, resizeRef.current.startRightWidth - delta);
+      
+      leftEl.style.width = `${newLeft}px`;
+      rightEl.style.width = `${newRight}px`;
+    };
+    
+    const handleMouseUp = () => {
+      if (!resizeRef.current || !onResizePane) {
+        resizeRef.current = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = 'default';
+        return;
+      }
+      
+      const leftEl = document.getElementById(`pane-${resizeRef.current.index}`);
+      const rightEl = document.getElementById(`pane-${resizeRef.current.index + 1}`);
+      
+      if (leftEl && rightEl && containerRef.current) {
+        const totalWidth = containerRef.current.offsetWidth;
+        const leftPercent = (leftEl.offsetWidth / totalWidth) * 100;
+        const rightPercent = (rightEl.offsetWidth / totalWidth) * 100;
+        
+        onResizePane(panes[resizeRef.current.index].id, leftPercent);
+        onResizePane(panes[resizeRef.current.index + 1].id, rightPercent);
+      }
+      
+      resizeRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'default';
+    };
+    
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [panes, onResizePane]);
 
-  if (!groups || groups.length === 0) {
+  if (!panes || panes.length === 0) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-bg">
         <div className="text-center p-8 max-w-sm">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-surface/30 mb-4">
             <Layers className="w-8 h-8 text-[#666666]" />
           </div>
-          <h3 className="text-lg text-[#aaaaaa] font-medium mb-2">No Groups Yet</h3>
+          <h3 className="text-lg text-[#aaaaaa] font-medium mb-2">No Panes Yet</h3>
           <p className="text-sm text-[#666666] mb-4">
-            Create your first group to start organizing your workspace panes.
+            Add panes to this workspace to get started.
           </p>
           <div className="flex flex-col gap-2 text-xs text-[#555555] font-mono">
             <div className="flex items-center gap-2 justify-center">
               <MousePointer className="w-3 h-3" />
-              <span>Click "Add Group" in the top bar</span>
-            </div>
-            <div className="flex items-center gap-2 justify-center">
-              <Info className="w-3 h-3" />
-              <span>Layers help you group and split panes</span>
+              <span>Click "Add Pane" in the top bar</span>
             </div>
           </div>
         </div>
@@ -164,51 +112,43 @@ export function Group({
     );
   }
 
-  let paneIndexOffset = 0;
-
   return (
-    <div ref={containerRef} className="flex flex-col h-full w-full relative">
-      <div className="flex-1 flex relative">
-        {groups.map((group, groupIdx) => {
-        const size = getGroupSize(groupIdx);
-        const panes = panesByGroup[group.id] || [];
-        const groupPaneCount = panes.length;
-        const currentOffset = paneIndexOffset;
-        
-        paneIndexOffset += groupPaneCount;
+    <div ref={containerRef} className="flex w-full h-full">
+      {panes.map((pane, idx) => {
+        const isActive = idx === activePaneIndex;
         
         return (
           <div
-            key={group.id}
-            className="relative border-r border-border-inactive"
-            style={{
-              width: `${size}%`,
-              minWidth: MIN_SIZE,
+            key={pane.id}
+            id={`pane-${idx}`}
+            className="relative h-full border-r border-border-inactive"
+            style={{ 
+              minWidth: `${MIN_PANE_WIDTH}px`,
+              flex: '1 1 auto',
             }}
           >
-            <VerticalPaneGroup
-              group={group}
-              panes={panes}
-              groupNumber={groupIdx + 1}
-              paneIndexOffset={currentOffset}
-              activePaneIndex={activePaneIndex}
-              onPaneClick={onPaneClick}
-              onClosePane={onClosePane}
-              onAddPane={onAddPane}
-              onCloseGroup={onCloseGroup}
+            <Pane
+              index={idx}
+              isActive={isActive}
+              totalPanes={totalPanes}
+              mode={pane.mode}
+              agentCommand={pane.agent_command}
+              onClick={() => onPaneClick(idx)}
+              onClose={onClosePane ? () => onClosePane(pane.id) : undefined}
               workspacePath={workspacePath}
             />
-            
-            {groupIdx < groups.length - 1 && (
+
+            {idx < panes.length - 1 && (
               <div
-                className="absolute top-0 bottom-0 w-[4px] bg-transparent hover:bg-white/50 cursor-col-resize z-10"
-                style={{ left: '100%', transform: 'translateX(-50%)' }}
+                id={`resize-${idx}`}
+                className="absolute right-0 top-0 bottom-0 w-2 hover:bg-white/50 cursor-col-resize"
+                style={{ zIndex: 10 }}
+                onMouseDown={(e) => handleResizeStart(e, idx)}
               />
             )}
           </div>
         );
       })}
-      </div>
     </div>
   );
 }

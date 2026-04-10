@@ -1,42 +1,36 @@
 import { useOutletContext } from "react-router-dom";
 import { TopBar, StatusBar, Group } from "../components";
-import { Workspace, Group as GroupType, DbPane } from "../types";
+import { Workspace, DbPane } from "../types";
 
 interface OutletContext {
   activeWorkspace: Workspace | undefined;
-  groups: GroupType[];
-  panesByGroup: Record<string, DbPane[]>;
+  panes: DbPane[];
   activePaneIndex: number;
-  activeGroupInfo: { groupIndex: number; paneIndex: number } | null | undefined;
   systemStats: { ram_percentage: number; cpu_usage: number };
   totalPanes: number;
-  onAddGroup: (() => void) | undefined;
+  onAddPane: (() => void) | undefined;
+  onResizePane?: (paneId: string, size: number) => void;
   onRenameWorkspace: (() => void) | undefined;
   onDeleteWorkspace: (() => void) | undefined;
   onCloseWorkspace: (() => void) | undefined;
   onPaneClick: (index: number) => void;
   onClosePane: (paneId: string) => void;
-  onAddPane: (groupId: string) => void;
-  onCloseGroup: (() => void) | undefined;
 }
 
 export function SelectWorkspace() {
   const {
     activeWorkspace,
-    groups,
-    panesByGroup,
+    panes,
     activePaneIndex,
-    activeGroupInfo,
     systemStats,
     totalPanes,
-    onAddGroup,
+    onAddPane,
+    onResizePane,
     onRenameWorkspace,
     onDeleteWorkspace,
     onCloseWorkspace,
     onPaneClick,
     onClosePane,
-    onAddPane,
-    onCloseGroup,
   } = useOutletContext<OutletContext>();
 
   if (!activeWorkspace) {
@@ -54,7 +48,7 @@ export function SelectWorkspace() {
     <div className="flex-1 flex flex-col min-w-0">
       <TopBar
         activeWorkspace={activeWorkspace}
-        onAddGroup={onAddGroup || (() => {})}
+        onAddPane={onAddPane || (() => {})}
         onRenameWorkspace={onRenameWorkspace || (() => {})}
         onDeleteWorkspace={onDeleteWorkspace || (() => {})}
         onCloseWorkspace={onCloseWorkspace || (() => {})}
@@ -62,23 +56,20 @@ export function SelectWorkspace() {
       />
       <div className="flex-1 bg-bg overflow-hidden">
         <Group
-          groups={groups}
-          panesByGroup={panesByGroup}
+          panes={panes}
           activePaneIndex={activePaneIndex}
           onPaneClick={onPaneClick}
           onClosePane={onClosePane}
-          onAddPane={onAddPane}
-          onCloseGroup={onCloseGroup || (() => {})}
+          onResizePane={onResizePane}
           workspacePath={activeWorkspace.path}
         />
       </div>
       <StatusBar
-        ramPercent={systemStats.ram_percentage}
-        cpuPercent={systemStats.cpu_usage}
-        activeGroup={activeGroupInfo?.groupIndex}
-        activePane={activeGroupInfo?.paneIndex}
+        activePaneIndex={activePaneIndex}
         workspacePath={activeWorkspace.path}
         totalPanes={totalPanes}
+        ramPercent={systemStats.ram_percentage}
+        cpuPercent={systemStats.cpu_usage}
       />
     </div>
   );

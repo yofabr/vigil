@@ -1,20 +1,16 @@
 interface StatusBarProps {
-  ramPercent: number;
-  cpuPercent: number;
-  activeGroup?: number;
-  activePane?: number;
+  activePaneIndex: number;
   workspacePath?: string;
   totalPanes: number;
+  ramPercent: number;
+  cpuPercent: number;
 }
 
-export function StatusBar(props: StatusBarProps) {
-  const { ramPercent, cpuPercent, activeGroup, activePane, workspacePath } = props;
+export function StatusBar({ activePaneIndex, workspacePath, totalPanes, ramPercent, cpuPercent }: StatusBarProps) {
   return (
     <footer className="h-6 bg-bg border-t border-border-inactive flex items-center justify-between px-3 font-mono text-[10px] text-text-inactive">
       <div className="flex items-center gap-4">
-        {activeGroup !== undefined && activePane !== undefined && (
-          <span>Selected: G{activeGroup + 1} - P{activePane + 1}</span>
-        )}
+        <span>Pane {activePaneIndex + 1}/{totalPanes}</span>
         <span>RAM {ramPercent.toFixed(0)}%</span>
         <span>CPU {cpuPercent.toFixed(0)}%</span>
       </div>
