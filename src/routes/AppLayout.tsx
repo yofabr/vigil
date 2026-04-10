@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { Sidebar, ConfirmDialog } from "../components";
 import { Workspace, DbPane } from "../types";
 import { api } from "../lib/api";
+import { invoke } from "@tauri-apps/api/core";
 
 interface SystemStats {
   ram_percentage: number;
@@ -55,10 +56,13 @@ export function AppLayout() {
 
   useEffect(() => {
     if (workspaceId && workspaceId !== activeWorkspaceId) {
+      if (activeWorkspaceId) {
+        invoke('pty_kill_workspace', { workspaceId: activeWorkspaceId }).catch(() => {});
+      }
       setActiveWorkspaceId(workspaceId);
       setActivePaneIndex(0);
     }
-  }, [workspaceId]);
+  }, [workspaceId, activeWorkspaceId]);
 
   useEffect(() => {
     if (activeWorkspaceId) {
@@ -153,6 +157,8 @@ export function AppLayout() {
       if (!activeWorkspaceId) return;
       
       try {
+        const ptyId = `${activeWorkspaceId}-${paneId}`;
+        invoke('pty_kill', { id: ptyId }).catch(() => {});
         await api.deletePane(paneId);
         await loadPanes(activeWorkspaceId);
         
@@ -238,9 +244,12 @@ export function AppLayout() {
   }, []);
 
   const handleCloseWorkspace = useCallback(() => {
+    if (activeWorkspaceId) {
+      invoke('pty_kill_workspace', { workspaceId: activeWorkspaceId }).catch(() => {});
+    }
     setActiveWorkspaceId(null);
     navigate("/");
-  }, [navigate]);
+  }, [navigate, activeWorkspaceId]);
 
   if (loading) {
     return (

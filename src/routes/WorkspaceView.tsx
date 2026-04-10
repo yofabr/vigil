@@ -58,13 +58,14 @@ export function WorkspaceView() {
         onOpenSettings={() => {}}
       />
       <div className="flex-1 bg-bg overflow-hidden">
-        <Group
-          panes={panes}
-          activePaneIndex={activePaneIndex}
-          onPaneClick={onPaneClick}
-          onClosePane={onClosePane}
-          onResizePane={onResizePane}
-        />
+<Group
+              panes={panes}
+              activePaneIndex={activePaneIndex}
+              workspaceId={activeWorkspace?.id || ''}
+              onPaneClick={onPaneClick}
+              onClosePane={onClosePane}
+              onResizePane={onResizePane}
+            />
       </div>
       <StatusBar
         activePaneIndex={activePaneIndex}

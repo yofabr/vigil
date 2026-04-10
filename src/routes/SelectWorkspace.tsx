@@ -58,6 +58,7 @@ export function SelectWorkspace() {
         <Group
           panes={panes}
           activePaneIndex={activePaneIndex}
+          workspaceId={activeWorkspace?.id || ''}
           onPaneClick={onPaneClick}
           onClosePane={onClosePane}
           onResizePane={onResizePane}

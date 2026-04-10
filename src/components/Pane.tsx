@@ -1,4 +1,8 @@
+import { Terminal } from './Terminal';
+
 interface PaneProps {
+  id: string;
+  workspaceId: string;
   index: number;
   isActive: boolean;
   totalPanes: number;
@@ -9,6 +13,8 @@ interface PaneProps {
 }
 
 export function Pane({ 
+  id,
+  workspaceId,
   index, 
   isActive, 
   totalPanes, 
@@ -53,14 +59,20 @@ export function Pane({
         </div>
       </div>
       
-      <div className="h-[calc(100%-24px)] bg-surface overflow-hidden p-2">
-        <pre className="text-[10px] text-[#aaaaaa] font-mono">
+      <div className="h-[calc(100%-24px)] bg-surface overflow-hidden">
+        {mode === 'TERMINAL' ? (
+          <Terminal id={id} workspaceId={workspaceId} isActive={isActive} rows={20} cols={80} />
+        ) : (
+          <div className="p-2">
+            <pre className="text-[10px] text-[#aaaaaa] font-mono">
 {`$ ./vigil --workspace ws-${String(index + 1).padStart(2, '0')}
-> Initializing terminal...
+> Initializing agent...
 > Workspace loaded successfully
 
 $ _`}
-        </pre>
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

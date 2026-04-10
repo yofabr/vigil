@@ -6,6 +6,7 @@ import { Pane } from './Pane';
 interface LayoutProps {
   panes: DbPane[];
   activePaneIndex: number;
+  workspaceId: string;
   onPaneClick: (index: number) => void;
   onClosePane?: (paneId: string) => void;
   onResizePane?: (paneId: string, size: number) => void;
@@ -16,6 +17,7 @@ const MIN_PANE_WIDTH = 200;
 export function Group({
   panes,
   activePaneIndex,
+  workspaceId,
   onPaneClick,
   onClosePane,
   onResizePane,
@@ -126,6 +128,8 @@ export function Group({
             }}
           >
             <Pane
+              id={pane.id}
+              workspaceId={workspaceId}
               index={idx}
               isActive={isActive}
               totalPanes={totalPanes}
