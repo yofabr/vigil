@@ -16,6 +16,8 @@
         "title": "vigil",
         "width": 800,
         "height": 600,
+        "minWidth": 500,
+        "minHeight": 400,
         "decorations": false,
         "transparent": true
       }
