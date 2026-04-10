@@ -6,21 +6,24 @@ mod state;
 
 use commands::workspaces::*;
 use state::AppState;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
+
+#[tauri::command]
+fn get_cli_args() -> Option<String> {
+    std::env::var("VIGIL_DEFAULT_PATH").ok()
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let cli_default_path = std::env::var("VIGIL_DEFAULT_PATH").ok();
+
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(move |app| {
             let pool = tauri::async_runtime::block_on(db::init());
-            app.manage(AppState { db: pool });
-
-            let default_path = std::env::var("VIGIL_DEFAULT_PATH").ok();
-            if let Some(path) = default_path {
-                let window = app.get_webview_window("main").unwrap();
-                let _ = window.emit("cli-args", serde_json::json!({ "defaultPath": path }));
-            }
-
+            app.manage(AppState {
+                db: pool,
+                cli_default_path: cli_default_path.clone(),
+            });
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
@@ -37,6 +40,7 @@ pub fn run() {
             delete_pane,
             get_config,
             save_config,
+            get_cli_args,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

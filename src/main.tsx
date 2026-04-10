@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
-import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import App from "./App";
 import "./index.css";
 
@@ -13,9 +13,14 @@ declare global {
 
 async function init() {
   if (window.__TAURI__) {
-    await listen<{ defaultPath: string }>("cli-args", (event) => {
-      window.VIGIL_DEFAULT_PATH = event.payload.defaultPath;
-    });
+    try {
+      const cliPath = await invoke<string | null>("get_cli_args");
+      if (cliPath) {
+        window.VIGIL_DEFAULT_PATH = cliPath;
+      }
+    } catch (e) {
+      console.error("Failed to get CLI args:", e);
+    }
   }
 
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
