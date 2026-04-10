@@ -34,9 +34,11 @@ export function CreateWorkspace() {
   const navigate = useNavigate();
   const { loadWorkspaces } = useOutletContext<{ loadWorkspaces: () => Promise<void> }>();
 
+  const defaultPath = typeof window !== "undefined" ? window.VIGIL_DEFAULT_PATH : undefined;
+
   const [name, setName] = useState("");
   const [color, setColor] = useState<string>(WORKSPACE_COLORS[0]);
-  const [directory, setDirectory] = useState("");
+  const [directory, setDirectory] = useState(defaultPath || "");
   const [agent, setAgent] = useState<string>("claude");
   const [agentSearch, setAgentSearch] = useState<string>("claude");
   const [isAgentDropdownOpen, setIsAgentDropdownOpen] = useState(false);

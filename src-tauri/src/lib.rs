@@ -6,7 +6,7 @@ mod state;
 
 use commands::workspaces::*;
 use state::AppState;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,6 +14,13 @@ pub fn run() {
         .setup(|app| {
             let pool = tauri::async_runtime::block_on(db::init());
             app.manage(AppState { db: pool });
+
+            let default_path = std::env::var("VIGIL_DEFAULT_PATH").ok();
+            if let Some(path) = default_path {
+                let window = app.get_webview_window("main").unwrap();
+                let _ = window.emit("cli-args", serde_json::json!({ "defaultPath": path }));
+            }
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
