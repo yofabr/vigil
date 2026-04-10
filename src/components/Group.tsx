@@ -9,7 +9,6 @@ interface LayoutProps {
   onPaneClick: (index: number) => void;
   onClosePane?: (paneId: string) => void;
   onResizePane?: (paneId: string, size: number) => void;
-  workspacePath?: string;
 }
 
 const MIN_PANE_WIDTH = 200;
@@ -20,7 +19,6 @@ export function Group({
   onPaneClick,
   onClosePane,
   onResizePane,
-  workspacePath,
 }: LayoutProps) {
   const totalPanes = panes.length;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -135,7 +133,6 @@ export function Group({
               agentCommand={pane.agent_command}
               onClick={() => onPaneClick(idx)}
               onClose={onClosePane ? () => onClosePane(pane.id) : undefined}
-              workspacePath={workspacePath}
             />
 
             {idx < panes.length - 1 && (

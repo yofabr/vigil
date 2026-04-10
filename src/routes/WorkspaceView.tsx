@@ -10,8 +10,9 @@ interface OutletContext {
   totalPanes: number;
   onAddPane: (() => void) | undefined;
   onResizePane?: (paneId: string, size: number) => void;
-  onRenameWorkspace: (() => void) | undefined;
-  onDeleteWorkspace: (() => void) | undefined;
+  onRenameWorkspace?: (name: string) => void;
+  onChangeColor?: (color: string) => void;
+  onDeleteWorkspace?: () => void;
   onCloseWorkspace: (() => void) | undefined;
   onPaneClick: (index: number) => void;
   onClosePane: (paneId: string) => void;
@@ -27,6 +28,7 @@ export function WorkspaceView() {
     onAddPane,
     onResizePane,
     onRenameWorkspace,
+    onChangeColor,
     onDeleteWorkspace,
     onCloseWorkspace,
     onPaneClick,
@@ -49,8 +51,9 @@ export function WorkspaceView() {
       <TopBar
         activeWorkspace={activeWorkspace}
         onAddPane={onAddPane || (() => {})}
-        onRenameWorkspace={onRenameWorkspace || (() => {})}
-        onDeleteWorkspace={onDeleteWorkspace || (() => {})}
+        onRenameWorkspace={onRenameWorkspace}
+        onChangeColor={onChangeColor}
+        onDeleteWorkspace={onDeleteWorkspace}
         onCloseWorkspace={onCloseWorkspace || (() => {})}
         onOpenSettings={() => {}}
       />
@@ -61,7 +64,6 @@ export function WorkspaceView() {
           onPaneClick={onPaneClick}
           onClosePane={onClosePane}
           onResizePane={onResizePane}
-          workspacePath={activeWorkspace.path}
         />
       </div>
       <StatusBar

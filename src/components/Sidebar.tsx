@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { ChevronLeft, ChevronRight, Pin, Plus, Settings } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Pin, Plus, Settings, Edit3, Trash2 } from 'lucide-react';
 import { Workspace } from '../types';
 
 interface SidebarProps {
@@ -11,6 +11,9 @@ interface SidebarProps {
   onWorkspaceReorder: (workspaces: Workspace[]) => void;
   onNewWorkspace: () => void;
   onOpenSettings?: () => void;
+  onRenameWorkspace?: (id: string, name: string) => void;
+  onDeleteWorkspace?: (id: string) => void;
+  loadWorkspaces: () => Promise<void>;
 }
 
 const SIDEBAR_EXPANDED_WIDTH = 220;
@@ -26,9 +29,68 @@ export function Sidebar({
   onWorkspaceReorder,
   onNewWorkspace,
   onOpenSettings,
+  onRenameWorkspace,
+  onDeleteWorkspace,
+  loadWorkspaces,
 }: SidebarProps) {
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; workspaceId: string } | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
   const isCollapsed = width <= SIDEBAR_COLLAPSED_WIDTH + 10;
+
+  useEffect(() => {
+    if (editingWorkspaceId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingWorkspaceId]);
+
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [contextMenu]);
+
+  const handleStartRename = (ws: Workspace) => {
+    setEditingWorkspaceId(ws.id);
+    setEditingName(ws.name);
+    setContextMenu(null);
+  };
+
+  const handleFinishRename = async () => {
+    if (!editingWorkspaceId || !editingName.trim()) {
+      setEditingWorkspaceId(null);
+      setEditingName('');
+      return;
+    }
+    try {
+      await onRenameWorkspace?.(editingWorkspaceId, editingName.trim());
+      await loadWorkspaces();
+    } catch (err) {
+      console.error('Rename failed:', err);
+    } finally {
+      setEditingWorkspaceId(null);
+      setEditingName('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleFinishRename();
+    } else if (e.key === 'Escape') {
+      setEditingWorkspaceId(null);
+      setEditingName('');
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, workspaceId: string) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, workspaceId });
+  };
   
   const handleToggleCollapse = () => {
     onWidthChange(isCollapsed ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH);
@@ -101,6 +163,7 @@ export function Sidebar({
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, adjustedIndex)}
           onClick={() => onWorkspaceSelect(ws.id)}
+          onContextMenu={(e) => handleContextMenu(e, ws.id)}
           className={`
             flex items-center justify-center py-3 cursor-pointer select-none
             transition-colors duration-150 relative
@@ -126,6 +189,8 @@ export function Sidebar({
       );
     }
 
+    const isEditing = editingWorkspaceId === ws.id;
+
     return (
       <div
         key={ws.id}
@@ -133,7 +198,8 @@ export function Sidebar({
         onDragStart={(e) => handleDragStart(e, adjustedIndex)}
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, adjustedIndex)}
-        onClick={() => onWorkspaceSelect(ws.id)}
+        onClick={() => !isEditing && onWorkspaceSelect(ws.id)}
+        onContextMenu={(e) => handleContextMenu(e, ws.id)}
         className={`
           flex flex-col gap-1 px-3 py-2 cursor-pointer select-none
           transition-colors duration-150
@@ -149,7 +215,19 @@ export function Sidebar({
             className="w-2 h-2 flex-shrink-0" 
             style={{ backgroundColor: ws.color }}
           />
-          <span className="text-xs truncate flex-1">{ws.name}</span>
+          {isEditing ? (
+            <input
+              ref={editInputRef}
+              type="text"
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              onBlur={handleFinishRename}
+              onKeyDown={handleKeyDown}
+              className="flex-1 px-1 py-0 bg-surface border border-white/30 text-xs text-text-active font-mono focus:outline-none"
+            />
+          ) : (
+            <span className="text-xs truncate flex-1">{ws.name}</span>
+          )}
         </div>
         
         <div className="flex flex-col gap-0.5 ml-4 text-[10px] text-[#888888]">
@@ -231,6 +309,34 @@ export function Sidebar({
           </div>
         )}
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed bg-bg border border-border-inactive shadow-lg z-50 py-1"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={() => {
+              const ws = workspaces.find(w => w.id === contextMenu.workspaceId);
+              if (ws) handleStartRename(ws);
+            }}
+            className="w-full px-3 py-1.5 text-left text-xs font-mono text-[#aaaaaa] hover:bg-[#333333] hover:text-white flex items-center gap-2"
+          >
+            <Edit3 className="w-3 h-3" />
+            Rename
+          </button>
+          <button
+            onClick={() => {
+              onDeleteWorkspace?.(contextMenu.workspaceId);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left text-xs font-mono text-red-400 hover:bg-red-400/10 flex items-center gap-2"
+          >
+            <Trash2 className="w-3 h-3" />
+            Delete
+          </button>
+        </div>
+      )}
 
       {/* New Workspace Button */}
       <div className={`p-2 border-t border-border-inactive ${isCollapsed ? 'px-1' : ''}`}>

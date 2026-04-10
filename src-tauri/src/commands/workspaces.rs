@@ -212,7 +212,7 @@ pub async fn update_workspace(
         updates.join(", ")
     );
 
-    let mut query_builder = sqlx::query_as::<_, Workspace>(&query).bind(&id);
+    let mut query_builder = sqlx::query_as::<_, Workspace>(&query);
 
     if let Some(ref name) = input.name {
         query_builder = query_builder.bind(name);
@@ -239,10 +239,13 @@ pub async fn update_workspace(
         query_builder = query_builder.bind(split_size);
     }
 
+    query_builder = query_builder.bind(&id);
+
     query_builder
-        .fetch_one(&state.db)
+        .fetch_optional(&state.db)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Workspace not found".to_string())
 }
 
 #[tauri::command]

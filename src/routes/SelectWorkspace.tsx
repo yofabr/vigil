@@ -61,7 +61,6 @@ export function SelectWorkspace() {
           onPaneClick={onPaneClick}
           onClosePane={onClosePane}
           onResizePane={onResizePane}
-          workspacePath={activeWorkspace.path}
         />
       </div>
       <StatusBar

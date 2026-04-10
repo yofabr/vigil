@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
-import { Sidebar } from "../components";
+import { Sidebar, ConfirmDialog } from "../components";
 import { Workspace, DbPane } from "../types";
 import { api } from "../lib/api";
 
@@ -21,6 +21,7 @@ export function AppLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const [systemStats, setSystemStats] = useState<SystemStats>({ ram_percentage: 0, cpu_usage: 0 });
   const [loading, setLoading] = useState(true);
+  const [deleteConfirmWorkspaceId, setDeleteConfirmWorkspaceId] = useState<string | null>(null);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const totalPanes = panes.length;
@@ -172,13 +173,69 @@ export function AppLayout() {
     navigate("/settings");
   }, [navigate]);
 
-  const handleRenameWorkspace = useCallback(() => {
-    console.log("Rename workspace:", activeWorkspaceId);
+  const handleDeleteWorkspace = useCallback((id: string) => {
+    setDeleteConfirmWorkspaceId(id);
+  }, []);
+
+  const handleRenameActiveWorkspace = useCallback(async (name: string) => {
+    const currentId = workspaceId || activeWorkspaceId;
+    if (!currentId) return;
+    try {
+      await api.updateWorkspace(currentId, { name });
+      const ws = await api.getWorkspaces();
+      setWorkspaces(ws);
+    } catch (err) {
+      console.error('Rename failed:', err);
+    }
+  }, [workspaceId, activeWorkspaceId]);
+
+  const handleRenameWorkspaceById = useCallback(async (id: string, name: string) => {
+    try {
+      await api.updateWorkspace(id, { name });
+      const ws = await api.getWorkspaces();
+      setWorkspaces(ws);
+    } catch (err) {
+      console.error('Rename failed:', err);
+    }
+  }, []);
+
+  const handleDeleteActiveWorkspace = useCallback(() => {
+    if (!activeWorkspaceId) return;
+    setDeleteConfirmWorkspaceId(activeWorkspaceId);
   }, [activeWorkspaceId]);
 
-  const handleDeleteWorkspace = useCallback(() => {
-    console.log("Delete workspace:", activeWorkspaceId);
-  }, [activeWorkspaceId]);
+  const handleChangeActiveColor = useCallback(async (color: string) => {
+    const currentId = workspaceId || activeWorkspaceId;
+    if (!currentId) return;
+    try {
+      await api.updateWorkspace(currentId, { color });
+      const ws = await api.getWorkspaces();
+      setWorkspaces(ws);
+    } catch (err) {
+      console.error('Change color failed:', err);
+    }
+  }, [workspaceId, activeWorkspaceId]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteConfirmWorkspaceId) return;
+
+    try {
+      await api.deleteWorkspace(deleteConfirmWorkspaceId);
+      await loadWorkspaces();
+      
+      if (activeWorkspaceId === deleteConfirmWorkspaceId) {
+        navigate("/");
+      }
+    } catch (err) {
+      console.error('Failed to delete workspace:', err);
+    } finally {
+      setDeleteConfirmWorkspaceId(null);
+    }
+  }, [deleteConfirmWorkspaceId, activeWorkspaceId, navigate, loadWorkspaces]);
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteConfirmWorkspaceId(null);
+  }, []);
 
   const handleCloseWorkspace = useCallback(() => {
     setActiveWorkspaceId(null);
@@ -205,6 +262,9 @@ export function AppLayout() {
           onWorkspaceReorder={handleWorkspaceReorder}
           onNewWorkspace={handleNewWorkspace}
           onOpenSettings={handleOpenSettings}
+          onRenameWorkspace={handleRenameWorkspaceById}
+          onDeleteWorkspace={handleDeleteWorkspace}
+          loadWorkspaces={loadWorkspaces}
         />
 
         <div className="flex-1 flex flex-col min-w-0">
@@ -216,8 +276,9 @@ export function AppLayout() {
             totalPanes,
             onAddPane: activeWorkspaceId ? handleAddPane : undefined,
             onResizePane: activeWorkspaceId ? handleResizePane : undefined,
-            onRenameWorkspace: activeWorkspaceId ? handleRenameWorkspace : undefined,
-            onDeleteWorkspace: activeWorkspaceId ? handleDeleteWorkspace : undefined,
+            onRenameWorkspace: activeWorkspaceId ? handleRenameActiveWorkspace : undefined,
+            onChangeColor: activeWorkspaceId ? handleChangeActiveColor : undefined,
+            onDeleteWorkspace: activeWorkspaceId ? handleDeleteActiveWorkspace : undefined,
             onPaneClick: handlePaneClick,
             onClosePane: handleClosePane,
             onCloseWorkspace: activeWorkspaceId ? handleCloseWorkspace : undefined,
@@ -230,6 +291,17 @@ export function AppLayout() {
           }} />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteConfirmWorkspaceId !== null}
+        title="Delete Workspace"
+        message={`Are you sure you want to delete "${workspaces.find(w => w.id === deleteConfirmWorkspaceId)?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }

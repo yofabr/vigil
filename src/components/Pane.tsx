@@ -6,7 +6,6 @@ interface PaneProps {
   agentCommand?: string;
   onClick: () => void;
   onClose?: () => void;
-  workspacePath?: string;
 }
 
 export function Pane({ 
@@ -17,7 +16,6 @@ export function Pane({
   agentCommand,
   onClick,
   onClose,
-  workspacePath,
 }: PaneProps) {
   const label = mode === 'AGENT' ? `AGENT ${agentCommand || '?'}` : `TERM ${index + 1}`;
   const borderColor = isActive ? '#ffffff' : '#333333';
@@ -47,11 +45,6 @@ export function Pane({
           <span className="text-[10px] text-[#aaaaaa] uppercase tracking-wider font-mono">
             {label}
           </span>
-          {workspacePath && (
-            <span className="text-[10px] text-[#aaaaaa] font-mono truncate max-w-[200px]">
-              {workspacePath}
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-[#aaaaaa] font-mono">
