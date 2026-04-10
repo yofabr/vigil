@@ -13,6 +13,14 @@ fn get_cli_args() -> Option<String> {
     std::env::var("VIGIL_DEFAULT_PATH").ok()
 }
 
+#[tauri::command]
+fn get_initial_route() -> String {
+    match std::env::var("VIGIL_DEFAULT_PATH") {
+        Ok(path) if !path.is_empty() => "/workspace/create".to_string(),
+        _ => "/".to_string(),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_default_path = std::env::var("VIGIL_DEFAULT_PATH").ok();
@@ -41,6 +49,7 @@ pub fn run() {
             get_config,
             save_config,
             get_cli_args,
+            get_initial_route,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

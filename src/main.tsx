@@ -12,11 +12,17 @@ declare global {
 }
 
 async function init() {
+  let cliPath: string | null = null;
+  let initialRoute = "/";
+
   if (window.__TAURI__) {
     try {
-      const cliPath = await invoke<string | null>("get_cli_args");
-      if (cliPath) {
-        window.VIGIL_DEFAULT_PATH = cliPath;
+      initialRoute = await invoke<string>("get_initial_route");
+      if (initialRoute === "/workspace/create") {
+        cliPath = await invoke<string | null>("get_cli_args");
+        if (cliPath) {
+          window.VIGIL_DEFAULT_PATH = cliPath;
+        }
       }
     } catch (e) {
       console.error("Failed to get CLI args:", e);
@@ -25,7 +31,7 @@ async function init() {
 
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialRoute]}>
         <App />
       </MemoryRouter>
     </React.StrictMode>,
