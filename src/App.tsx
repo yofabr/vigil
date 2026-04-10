@@ -7,7 +7,7 @@ export function App() {
   useRouteSync();
 
   return (
-    <div className="h-full flex flex-col bg-bg border border-[#444444]">
+    <div className="h-full flex flex-col bg-bg border border-border-light">
       <TitleBar />
       <Routes>
         <Route element={<AppLayout />}>

@@ -38,7 +38,7 @@ export function WorkspaceView() {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <div className="text-[#555555] text-lg font-mono mb-2">Select a workspace</div>
-          <div className="text-[#444444] text-sm font-mono">Choose a workspace from the sidebar to get started</div>
+          <div className="text-border-light text-sm font-mono">Choose a workspace from the sidebar to get started</div>
         </div>
       </div>
     );
